@@ -7,9 +7,9 @@
   <title>LIVE FRAME — Danmaku Overlay</title>
   <style>
     :root {
-      --accent: #00e5ff;
-      --accent-dim: rgba(0, 229, 255, 0.15);
-      --accent-glow: rgba(0, 229, 255, 0.45);
+      --accent: #76ff03;
+      --accent-dim: rgba(118, 255, 3, 0.15);
+      --accent-glow: rgba(118, 255, 3, 0.45);
       --bg-panel: rgba(8, 10, 14, 0.82);
       --bg-frame: rgba(8, 10, 14, 0.92);
       --text-primary: #e8eaed;
@@ -17,8 +17,8 @@
       --border: rgba(255, 255, 255, 0.08);
       --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
       --frame-thickness: 3px;
-      --danmaku-width: 340px;
-      --dm-font-size: 13px;
+      --danmaku-width: 240px;
+      --dm-font-size: 22px;
       --dm-font-family: var(--font-mono);
     }
 
@@ -714,19 +714,19 @@
     <button class="ctrl-btn" id="clearBtn">CLR</button>
     <div class="color-ctrl">
       <button class="rgb-swatch" id="rgbBtn" title="RGB Flow Glow Mode">RGB</button>
-      <div class="color-swatch sel" data-c="#00e5ff" style="background:#00e5ff"></div>
-      <div class="color-swatch" data-c="#76ff03" style="background:#76ff03"></div>
+      <div class="color-swatch" data-c="#00e5ff" style="background:#00e5ff"></div>
+      <div class="color-swatch sel" data-c="#76ff03" style="background:#76ff03"></div>
       <div class="color-swatch" data-c="#ff1744" style="background:#ff1744"></div>
       <div class="color-swatch" data-c="#d500f9" style="background:#d500f9"></div>
       <div class="color-swatch" data-c="#ffab00" style="background:#ffab00"></div>
-      <input type="color" id="colorPick" value="#00e5ff">
+      <input type="color" id="colorPick" value="#76ff03">
     </div>
     <span class="ctrl-sep"></span>
     <!-- Dynamic FX Light Mode Switch Button -->
     <button class="ctrl-btn" id="fxBtn" title="全色系动态灯效开关 (点击切换 常亮/流光/呼吸)">FX: OFF</button>
     <span class="ctrl-sep"></span>
-    <label class="ctrl-label">W<input type="range" id="widthRange" min="220" max="520" value="340" step="10"></label>
-    <label class="ctrl-label">F<input type="range" id="fontRange" min="11" max="22" value="13" step="1"></label>
+    <label class="ctrl-label">W<input type="range" id="widthRange" min="220" max="520" value="240" step="10"></label>
+    <label class="ctrl-label">F<input type="range" id="fontRange" min="11" max="22" value="22" step="1"></label>
     <select id="fontSelect" class="ctrl-select">
       <option value="'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace">Mono</option>
       <option value="'Inter','Segoe UI','Helvetica Neue',sans-serif">Sans</option>
@@ -1110,9 +1110,9 @@
     (function initParams() {
       const p = new URLSearchParams(location.search);
       if (p.get('room')) roomInput.value = p.get('room');
-      if (p.get('color')) setAccent(p.get('color'));
+      setAccent(p.get('color') || '#76ff03');
       if (p.get('rgb') === 'true') toggleRGB(true);
-      if (p.get('fx')) setFX(p.get('fx'));
+      setFX(p.get('fx') || 'flow');
       if (p.get('sessdata') || p.get('cookie')) {
         const c = p.get('sessdata') || p.get('cookie');
         localStorage.setItem('bili_sessdata', c);
