@@ -100,6 +100,8 @@ async function getBilibiliDanmuConf(roomId) {
   const str = (roomId || '6').toString().trim();
   const cleanId = str.match(/live\.bilibili\.com\/(\d+)/i)?.[1] || str.match(/\d+/)?.[0] || '6';
   let realRoomId = parseInt(cleanId, 10);
+  if (isNaN(realRoomId)) realRoomId = 6;
+
   let liveStatus = 0; // 0: 未开播, 1: 正在直播, 2: 轮播
   
   try {
@@ -158,6 +160,7 @@ wss.on('connection', (clientWs) => {
 
   let activeBiliWs = null;
   let heartbeatTimer = null;
+  let reconnectTimer = null;
   let connectionSeq = 0;
 
   function safeSend(msgObj) {
@@ -171,6 +174,10 @@ wss.on('connection', (clientWs) => {
   }
 
   function stopBiliWs() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer);
       heartbeatTimer = null;
@@ -186,166 +193,179 @@ wss.on('connection', (clientWs) => {
   }
 
   async function connectToBilibili(rawRoomId) {
-    stopBiliWs();
-    const currentSeq = ++connectionSeq;
+    try {
+      stopBiliWs();
+      const currentSeq = ++connectionSeq;
 
-    safeSend({ type: 'status', connected: false, message: `CONNECTING...` });
-    const conf = await getBilibiliDanmuConf(rawRoomId);
+      safeSend({ type: 'status', connected: false, message: `CONNECTING...` });
+      const conf = await getBilibiliDanmuConf(rawRoomId);
 
-    // 防竞态防孤儿 Socket：如果在 fetch 期间发起了新的连接请求，放弃本次旧请求
-    if (currentSeq !== connectionSeq) {
-      return;
-    }
-
-    console.log(`[RelayWS] 正在建立 B站 弹幕连接 [房间号: ${conf.realRoomId}]...`);
-
-    const wsUrl = `wss://${conf.host}:${conf.port}/sub`;
-    const ws = new WebSocket(wsUrl);
-
-    // 创建即绑定 error 监听，防止任何阶段触发 Unhandled error
-    ws.on('error', (err) => {
-      console.error(`[RelayWS] B站 连接出错: ${err.message}`);
-      if (currentSeq === connectionSeq) {
-        safeSend({ type: 'status', connected: false, message: `ERROR` });
-      }
-    });
-
-    activeBiliWs = ws;
-
-    ws.on('open', () => {
       if (currentSeq !== connectionSeq) {
-        ws.close();
         return;
       }
-      console.log(`[RelayWS] WebSocket 已连通，发送 Opcode 7 鉴权包...`);
-      const authPayload = JSON.stringify({
-        uid: 0,
-        roomid: conf.realRoomId,
-        protover: 3,
-        platform: 'web',
-        type: 2,
-        key: conf.token
+
+      console.log(`[RelayWS] 正在建立 B站 弹幕连接 [房间号: ${conf.realRoomId}]...`);
+
+      const wsUrl = `wss://${conf.host}:${conf.port}/sub`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.on('error', (err) => {
+        console.error(`[RelayWS] B站 连接出错: ${err.message}`);
+        if (currentSeq === connectionSeq) {
+          safeSend({ type: 'status', connected: false, message: `ERROR` });
+        }
       });
-      ws.send(makePacket(7, authPayload, 3));
 
-      heartbeatTimer = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN && currentSeq === connectionSeq) {
-          ws.send(makePacket(2, '[object Object]', 3));
-        }
-      }, 30000);
-    });
+      activeBiliWs = ws;
 
-    ws.on('message', (data) => {
-      if (currentSeq !== connectionSeq) return;
-      try {
-        if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) return;
-        const buf = Buffer.from(data);
-        if (buf.length < 16) return;
-
-        const headerLen = buf.readUInt16BE(4);
-        const protover = buf.readUInt16BE(6);
-        const opcode = buf.readUInt32BE(8);
-        const body = buf.subarray(headerLen);
-
-        // Opcode 8: Auth Reply
-        if (opcode === 8) {
-          const statusTag = conf.liveStatus === 1 ? 'LIVE' : (conf.liveStatus === 2 ? 'ROUND' : '未开播');
-          console.log(`[RelayWS] B站 直播间 [${conf.realRoomId}] 鉴权成功！状态: ${statusTag}`);
-          safeSend({ type: 'status', connected: true, message: `ROOM ${conf.realRoomId} (${statusTag})`, liveStatus: conf.liveStatus });
+      ws.on('open', () => {
+        if (currentSeq !== connectionSeq) {
+          try { ws.close(); } catch(e) {}
           return;
         }
+        console.log(`[RelayWS] WebSocket 已连通，发送 Opcode 7 鉴权包...`);
+        const authPayload = JSON.stringify({
+          uid: 0,
+          roomid: conf.realRoomId,
+          protover: 3,
+          platform: 'web',
+          type: 2,
+          key: conf.token
+        });
+        ws.send(makePacket(7, authPayload, 3));
 
-        // Opcode 3: Popularity Heartbeat Reply
-        if (opcode === 3) {
-          if (body.length >= 4) {
-            const popularity = body.readUInt32BE(0);
-            safeSend({ type: 'popularity', value: popularity });
+        heartbeatTimer = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN && currentSeq === connectionSeq) {
+            ws.send(makePacket(2, '[object Object]', 3));
           }
-          return;
-        }
+        }, 30000);
+      });
 
-        // Opcode 5: Danmaku & Notification Packets
-        if (opcode === 5) {
-          let decompressed = body;
-          try {
-            if (protover === 3) {
-              decompressed = zlib.brotliDecompressSync(body);
-            } else if (protover === 2) {
-              decompressed = zlib.inflateSync(body);
-            }
-          } catch (decompErr) {
-            console.error('[RelayWS] Decompression error:', decompErr.message);
+      ws.on('message', (data) => {
+        if (currentSeq !== connectionSeq) return;
+        try {
+          if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) return;
+          const buf = Buffer.from(data);
+          if (buf.length < 16) return;
+
+          const headerLen = buf.readUInt16BE(4);
+          const protover = buf.readUInt16BE(6);
+          const opcode = buf.readUInt32BE(8);
+          const body = buf.subarray(headerLen);
+
+          // Opcode 8: Auth Reply
+          if (opcode === 8) {
+            const statusTag = conf.liveStatus === 1 ? 'LIVE' : (conf.liveStatus === 2 ? 'ROUND' : '未开播');
+            console.log(`[RelayWS] B站 直播间 [${conf.realRoomId}] 鉴权成功！状态: ${statusTag}`);
+            safeSend({ type: 'status', connected: true, message: `ROOM ${conf.realRoomId} (${statusTag})`, liveStatus: conf.liveStatus });
             return;
           }
 
-          let offset = 0;
-          while (offset + 16 <= decompressed.length) {
-            const packLen = decompressed.readUInt32BE(offset);
-            if (packLen < 16 || offset + packLen > decompressed.length) {
-              break;
+          // Opcode 3: Popularity Heartbeat Reply
+          if (opcode === 3) {
+            if (body.length >= 4) {
+              const popularity = body.readUInt32BE(0);
+              safeSend({ type: 'popularity', value: popularity });
             }
-            const packHeaderLen = decompressed.readUInt16BE(offset + 4);
-            const packBody = decompressed.subarray(offset + packHeaderLen, offset + packLen);
+            return;
+          }
 
+          // Opcode 5: Danmaku & Notification Packets
+          if (opcode === 5) {
+            let decompressed = body;
             try {
-              const json = JSON.parse(packBody.toString('utf-8'));
-              if (json.cmd) {
-                if (json.cmd.includes('DANMU_MSG')) {
-                  const info = json.info || [];
-                  const text = info[1] || '';
-                  const user = (info[2] && info[2][1]) || '匿名用户';
-                  const guard = info[7] || 0;
-                  const medal = (info[3] && info[3][1]) ? { name: info[3][1], lv: info[3][0] } : null;
-
-                  safeSend({
-                    type: 'danmaku',
-                    user,
-                    text,
-                    guard,
-                    medal
-                  });
-                } else if (json.cmd === 'SEND_GIFT') {
-                  const d = json.data || {};
-                  safeSend({
-                    type: 'gift',
-                    user: d.uname || '匿名用户',
-                    text: `赠送了 ${d.giftName || '礼物'} x${d.num || 1}`,
-                    guard: 0
-                  });
-                } else if (json.cmd === 'SUPER_CHAT_MESSAGE') {
-                  const d = json.data || {};
-                  safeSend({
-                    type: 'sc',
-                    user: (d.user_info && d.user_info.uname) || '匿名用户',
-                    text: `[SC ¥${d.price || 0}] ${d.message || ''}`,
-                    guard: 0
-                  });
-                }
+              if (protover === 3) {
+                decompressed = zlib.brotliDecompressSync(body);
+              } else if (protover === 2) {
+                decompressed = zlib.inflateSync(body);
               }
-            } catch (e) {}
+            } catch (decompErr) {
+              console.error('[RelayWS] Decompression error:', decompErr.message);
+              return;
+            }
 
-            offset += packLen;
+            let offset = 0;
+            while (offset + 16 <= decompressed.length) {
+              const packLen = decompressed.readUInt32BE(offset);
+              if (packLen < 16 || offset + packLen > decompressed.length) {
+                break;
+              }
+              const packHeaderLen = decompressed.readUInt16BE(offset + 4);
+              const packBody = decompressed.subarray(offset + packHeaderLen, offset + packLen);
+
+              try {
+                const json = JSON.parse(packBody.toString('utf-8'));
+                if (json.cmd) {
+                  if (json.cmd.includes('DANMU_MSG')) {
+                    const info = json.info || [];
+                    const text = info[1] || '';
+                    const user = (info[2] && info[2][1]) || '匿名用户';
+                    const guard = info[7] || 0;
+                    const medal = (info[3] && info[3][1]) ? { name: info[3][1], lv: info[3][0] } : null;
+
+                    safeSend({
+                      type: 'danmaku',
+                      user,
+                      text,
+                      guard,
+                      medal
+                    });
+                  } else if (json.cmd === 'SEND_GIFT') {
+                    const d = json.data || {};
+                    safeSend({
+                      type: 'gift',
+                      user: d.uname || '匿名用户',
+                      text: `赠送了 ${d.giftName || '礼物'} x${d.num || 1}`,
+                      guard: 0
+                    });
+                  } else if (json.cmd === 'SUPER_CHAT_MESSAGE') {
+                    const d = json.data || {};
+                    safeSend({
+                      type: 'sc',
+                      user: (d.user_info && d.user_info.uname) || '匿名用户',
+                      text: `[SC ¥${d.price || 0}] ${d.message || ''}`,
+                      guard: 0
+                    });
+                  }
+                }
+              } catch (e) {}
+
+              offset += packLen;
+            }
+          }
+        } catch (err) {
+          console.error('[RelayWS] Packet parsing error:', err.message);
+        }
+      });
+
+      ws.on('close', (code, reason) => {
+        if (currentSeq === connectionSeq) {
+          console.log(`[RelayWS] B站 连接关闭: ${code} ${reason.toString()}`);
+          safeSend({ type: 'status', connected: false, message: `OFFLINE` });
+          stopBiliWs();
+
+          // 自动重连机制：若客户端依然在线，3秒后自动尝试重连 B站 上游
+          if (clientWs.readyState === WebSocket.OPEN) {
+            reconnectTimer = setTimeout(() => {
+              if (clientWs.readyState === WebSocket.OPEN && currentSeq === connectionSeq) {
+                console.log(`[RelayWS] 正在自动重连 B站 直播间 [${conf.realRoomId}]...`);
+                connectToBilibili(conf.realRoomId);
+              }
+            }, 3000);
           }
         }
-      } catch (err) {
-        console.error('[RelayWS] Packet parsing error:', err.message);
-      }
-    });
-
-    ws.on('close', (code, reason) => {
-      if (currentSeq === connectionSeq) {
-        console.log(`[RelayWS] B站 连接关闭: ${code} ${reason.toString()}`);
-        safeSend({ type: 'status', connected: false, message: `OFFLINE` });
-        stopBiliWs();
-      }
-    });
+      });
+    } catch (err) {
+      console.error('[RelayWS] connectToBilibili outer exception:', err.message || err);
+      safeSend({ type: 'status', connected: false, message: `ERROR` });
+    }
   }
 
   clientWs.on('message', (message) => {
     try {
       const payload = JSON.parse(message.toString());
       if (payload.action === 'subscribe') {
-        connectToBilibili(payload.roomId || '30068664');
+        connectToBilibili(payload.roomId || '6');
       } else if (payload.action === 'unsubscribe') {
         stopBiliWs();
         safeSend({ type: 'status', connected: false, message: `OFFLINE` });
