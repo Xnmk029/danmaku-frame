@@ -181,15 +181,24 @@
    DYNAMIC FX LIGHT MODES (APPLIED ACROSS ALL COLOR SCHEMES)
    ============================================================ */
 
-    /* 1. Flowing Light Mode (流光) */
+    /* 1. Flowing Light Mode (四边环绕流光模式) */
+    .frame-outer.fx-flow::before {
+      border-image: linear-gradient(var(--flow-deg, 0deg), var(--accent) 0%, #ffffff 50%, var(--accent) 100%) 1;
+      animation: flow-border-rotate 2.8s linear infinite;
+    }
+
+    .frame-outer.fx-flow .corner::before,
+    .frame-outer.fx-flow .corner::after {
+      background: #ffffff;
+      box-shadow: 0 0 8px var(--accent);
+      animation: flow-corner-glow 1.4s ease-in-out infinite alternate;
+    }
+
     .frame-outer.fx-flow .accent-bar {
       background: linear-gradient(90deg, var(--accent) 0%, #ffffff 50%, var(--accent) 100%);
       background-size: 200% 100%;
       animation: flow-beam 2.2s linear infinite;
-    }
-
-    .frame-outer.fx-flow::before {
-      animation: flow-border-pulse 2.2s ease-in-out infinite alternate;
+      box-shadow: 0 0 10px var(--accent);
     }
 
     .frame-outer.fx-flow .panel-header {
@@ -201,19 +210,40 @@
       0% {
         background-position: 200% 0;
       }
-
       100% {
         background-position: -200% 0;
       }
     }
 
-    @keyframes flow-border-pulse {
+    @keyframes flow-border-rotate {
       0% {
-        filter: drop-shadow(0 0 2px var(--accent)) brightness(1);
+        border-image-source: linear-gradient(0deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
+        filter: drop-shadow(0 0 3px var(--accent));
       }
-
+      25% {
+        border-image-source: linear-gradient(90deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
+      }
+      50% {
+        border-image-source: linear-gradient(180deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
+        filter: drop-shadow(0 0 12px var(--accent-glow));
+      }
+      75% {
+        border-image-source: linear-gradient(270deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
+      }
       100% {
-        filter: drop-shadow(0 0 10px var(--accent)) brightness(1.35);
+        border-image-source: linear-gradient(360deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
+        filter: drop-shadow(0 0 3px var(--accent));
+      }
+    }
+
+    @keyframes flow-corner-glow {
+      0% {
+        filter: brightness(1);
+        box-shadow: 0 0 4px var(--accent);
+      }
+      100% {
+        filter: brightness(1.6);
+        box-shadow: 0 0 12px #ffffff;
       }
     }
 
