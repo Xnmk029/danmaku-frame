@@ -103,17 +103,25 @@ httpServer.listen(HTTP_PORT, () => {
   console.log(`====================================================`);
 });
 
+const BILI_COOKIE = 'buvid3=F98F0559-221B-15A7-884D-2FEBEC08B5F025820infoc; bili_jct=893c897c8f4dc994aa4844849c2f5a24; DedeUserID=316052822; DedeUserID__ckMd5=5ee3ef812737c655; sid=m7ooiehh';
+
 // 2. Bilibili WebSocket Protocol Utilities
 async function getBilibiliDanmuConf(roomId) {
   const str = (roomId || '30068664').toString().trim();
   const cleanId = str.match(/live\.bilibili\.com\/(\d+)/i)?.[1] || str.match(/\d+/)?.[0] || '30068664';
   let realRoomId = parseInt(cleanId, 10);
-  if (isNaN(realRoomId)) realRoomId = 6;
+  if (isNaN(realRoomId)) realRoomId = 30068664;
 
   let liveStatus = 0; // 0: 未开播, 1: 正在直播, 2: 轮播
   
   try {
-    const r1 = await fetch(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${realRoomId}`);
+    const r1 = await fetch(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${realRoomId}`, {
+      headers: {
+        'Cookie': BILI_COOKIE,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': `https://live.bilibili.com/${realRoomId}`
+      }
+    });
     const d1 = await r1.json();
     if (d1.data) {
       if (d1.data.room_id) realRoomId = d1.data.room_id;
@@ -126,7 +134,13 @@ async function getBilibiliDanmuConf(roomId) {
   let port = 443;
 
   try {
-    const r2 = await fetch(`https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=${realRoomId}&platform=pc&player=web`);
+    const r2 = await fetch(`https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=${realRoomId}&platform=pc&player=web`, {
+      headers: {
+        'Cookie': BILI_COOKIE,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': `https://live.bilibili.com/${realRoomId}`
+      }
+    });
     const d2 = await r2.json();
     if (d2.data) {
       token = d2.data.token || '';
@@ -168,7 +182,7 @@ wss.on('connection', (clientWs) => {
 
   let activeBiliWs = null;
   let heartbeatTimer = null;
-  let reconnectTimer = null;
+  let antiDegradeTimer = null; // 90 秒防风控退化重连定时器
   let connectionSeq = 0;
 
   function safeSend(msgObj) {
@@ -182,9 +196,9 @@ wss.on('connection', (clientWs) => {
   }
 
   function stopBiliWs() {
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
+    if (antiDegradeTimer) {
+      clearTimeout(antiDegradeTimer);
+      antiDegradeTimer = null;
     }
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer);
@@ -215,7 +229,14 @@ wss.on('connection', (clientWs) => {
       console.log(`[RelayWS] 正在建立 B站 弹幕连接 [房间号: ${conf.realRoomId}]...`);
 
       const wsUrl = `wss://${conf.host}:${conf.port}/sub`;
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(wsUrl, {
+        headers: {
+          'Cookie': BILI_COOKIE,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Origin': 'https://live.bilibili.com',
+          'Referer': `https://live.bilibili.com/${conf.realRoomId}`
+        }
+      });
 
       ws.on('error', (err) => {
         console.error('[RelayWS] Socket Error Guarded:', err.message);
@@ -231,7 +252,7 @@ wss.on('connection', (clientWs) => {
           try { ws.close(); } catch(e) {}
           return;
         }
-        console.log(`[RelayWS] WebSocket 已连通，发送带登录 UID 凭证的 Opcode 7 鉴权包...`);
+        console.log(`[RelayWS] WebSocket 已连通，发送带 Cookie 凭证的 Opcode 7 鉴权包...`);
         const authPayload = JSON.stringify({
           uid: 0,
           roomid: conf.realRoomId,
@@ -248,6 +269,14 @@ wss.on('connection', (clientWs) => {
             ws.send(makePacket(2, '[object Object]', 3));
           }
         }, 30000);
+
+        // 防退化重连定时器 (90 秒无感平滑刷新，防止 B站 退化为游客星号打码)
+        antiDegradeTimer = setTimeout(() => {
+          if (currentSeq === connectionSeq) {
+            console.log(`[RelayWS] 触发 90s 防打码退化无感刷新重连 [房间号: ${conf.realRoomId}]`);
+            connectToBilibili(rawRoomId);
+          }
+        }, 90000);
       });
 
       function parsePacketBuffer(buf) {

@@ -1014,7 +1014,22 @@
       return 'user-mixed';
     }
 
+    const userCache = new Map();
+
+    function cleanUserName(user, medal) {
+      if (!user) return '匿名用户';
+      if (!user.includes('*')) {
+        if (medal && medal.name) userCache.set(medal.name + '_' + medal.lv, user);
+        return user;
+      }
+      if (medal && medal.name && userCache.has(medal.name + '_' + medal.lv)) {
+        return userCache.get(medal.name + '_' + medal.lv);
+      }
+      return user;
+    }
+
     function addDanmaku(data) {
+      const displayUser = cleanUserName(data.user, data.medal);
       const row = document.createElement('div');
       row.className = 'dm-row' + (data.type === 'gift' ? ' type-gift' : data.type === 'sc' ? ' type-sc' : '');
 
@@ -1022,8 +1037,8 @@
       if (data.medal) {
         html += `<span class="dm-medal">${data.medal.name} ${data.medal.lv}</span>`;
       }
-      const uCls = getUserClass(data.user);
-      html += `<span class="dm-user ${uCls}${data.guard ? ' guard-' + data.guard : ''}">${data.user}</span>`;
+      const uCls = getUserClass(displayUser);
+      html += `<span class="dm-user ${uCls}${data.guard ? ' guard-' + data.guard : ''}">${displayUser}</span>`;
       html += `<span class="dm-text"></span>`;
       row.innerHTML = html;
       feed.appendChild(row);
