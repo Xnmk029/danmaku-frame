@@ -834,7 +834,8 @@
         }
 
         this.disconnect();
-        this.ws = new WebSocket(`ws://${location.hostname || 'localhost'}:8787`);
+        const host = (location.hostname && location.hostname !== 'null' && location.hostname !== '') ? location.hostname : '127.0.0.1';
+        this.ws = new WebSocket(`ws://${host}:8787`);
 
         this.ws.onopen = () => {
           this.connected = true;
@@ -971,7 +972,8 @@
 
     function parseRoomId(val) {
       if (!val) return '30068664';
-      const m = val.toString().match(/(\d+)/);
+      const str = val.toString().trim();
+      const m = str.match(/live\.bilibili\.com\/(\d+)/i) || str.match(/(\d+)/);
       return m ? m[1] : '30068664';
     }
 

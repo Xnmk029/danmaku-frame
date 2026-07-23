@@ -97,7 +97,8 @@ httpServer.listen(HTTP_PORT, () => {
 
 // 2. Bilibili WebSocket Protocol Utilities
 async function getBilibiliDanmuConf(roomId) {
-  const cleanId = (roomId || '30068664').toString().match(/\d+/)?.[0] || '30068664';
+  const str = (roomId || '30068664').toString().trim();
+  const cleanId = str.match(/live\.bilibili\.com\/(\d+)/i)?.[1] || str.match(/\d+/)?.[0] || '30068664';
   let realRoomId = parseInt(cleanId, 10);
   
   try {
