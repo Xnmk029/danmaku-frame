@@ -303,6 +303,20 @@ wss.on('connection', (clientWs) => {
               safeSend({ type: 'popularity', value: popularity });
             }
           } 
+function cleanDanmakuUser(rawUser, uid, medal) {
+  if (!rawUser) return '匿名用户';
+  if (/^某\*+$/.test(rawUser) || (rawUser.startsWith('某') && rawUser.includes('*'))) {
+    if (medal && medal.name) {
+      return `${medal.name}·粉丝`;
+    }
+    if (uid) {
+      return `用户_${uid.toString().slice(-4)}`;
+    }
+    return '弹幕观众';
+  }
+  return rawUser;
+}
+
           // Opcode 5: Danmaku & Notification Packets
           else if (opcode === 5) {
             if (protover === 3 || protover === 2) {
@@ -324,9 +338,11 @@ wss.on('connection', (clientWs) => {
                   if (json.cmd.includes('DANMU_MSG')) {
                     const info = json.info || [];
                     const text = info[1] || '';
-                    const user = (info[2] && info[2][1]) || '匿名用户';
+                    const rawUser = (info[2] && info[2][1]) || '匿名用户';
+                    const uid = (info[2] && info[2][0]) || 0;
                     const guard = info[7] || 0;
                     const medal = (info[3] && info[3][1]) ? { name: info[3][1], lv: info[3][0] } : null;
+                    const user = cleanDanmakuUser(rawUser, uid, medal);
 
                     safeSend({
                       type: 'danmaku',

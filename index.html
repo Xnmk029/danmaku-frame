@@ -1025,6 +1025,10 @@
       if (medal && medal.name && userCache.has(medal.name + '_' + medal.lv)) {
         return userCache.get(medal.name + '_' + medal.lv);
       }
+      if (/^某\*+$/.test(user) || (user.startsWith('某') && user.includes('*'))) {
+        if (medal && medal.name) return `${medal.name}·粉丝`;
+        return '弹幕观众';
+      }
       return user;
     }
 
