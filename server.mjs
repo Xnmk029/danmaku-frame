@@ -208,14 +208,9 @@ wss.on('connection', (clientWs) => {
 
       const wsUrl = `wss://${conf.host}:${conf.port}/sub`;
       const ws = new WebSocket(wsUrl);
-
       ws.on('error', (err) => {
-        console.error(`[RelayWS] B站 连接出错: ${err.message}`);
-        if (currentSeq === connectionSeq) {
-          safeSend({ type: 'status', connected: false, message: `ERROR` });
-        }
+        console.error('[RelayWS] Socket Error Guarded:', err.message);
       });
-
       activeBiliWs = ws;
 
       ws.on('open', () => {
