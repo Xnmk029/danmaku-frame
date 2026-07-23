@@ -272,8 +272,7 @@
       position: absolute;
       top: 12px;
       left: 12px;
-      bottom: 216px;
-      /* Lifted bottom by 200px from 16px */
+      bottom: 24px;
       width: var(--danmaku-width);
       display: flex;
       flex-direction: column;
@@ -321,14 +320,16 @@
 
     .danmaku-feed {
       flex: 1;
-      overflow: hidden;
+      overflow-y: auto;
+      scrollbar-width: none;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       gap: 6px;
       padding: 10px 0;
-      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
+    }
+    .danmaku-feed::-webkit-scrollbar {
+      display: none;
     }
 
     /* Single danmaku row */
@@ -1020,6 +1021,7 @@
       feed.appendChild(row);
 
       while (feed.children.length > MAX_ROWS) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
 
       const textEl = row.querySelector('.dm-text');
       const scr = getScrambler();
