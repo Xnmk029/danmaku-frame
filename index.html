@@ -1298,6 +1298,105 @@
 
     clearBtn.addEventListener('click', () => { feed.innerHTML = ''; });
 
+    function parseRoomId(val) {
+      if (!val) return '30068664';
+      const str = val.toString().trim();
+      const m = str.match(/live\.bilibili\.com\/(\d+)/i) || str.match(/(\d+)/);
+      return m ? m[1] : '30068664';
+    }
+
+    class BiliDanmaku {
+      constructor(options) {
+        this.options = options || {};
+        this.ws = null;
+      }
+
+      connect(roomId, sessdata) {
+        if (this.ws) {
+          try { this.ws.close(); } catch(e) {}
+        }
+
+        const host = (location.hostname && location.hostname !== 'null') ? location.hostname : '127.0.0.1';
+        const wsUrl = `ws://${host}:8787`;
+        if (this.options.onStatusChange) this.options.onStatusChange({ connected: false, message: 'CONNECTING...' });
+
+        try {
+          this.ws = new WebSocket(wsUrl);
+          this.ws.onopen = () => {
+            this.ws.send(JSON.stringify({
+              action: 'subscribe',
+              roomId: roomId || '30068664',
+              sessdata: sessdata || ''
+            }));
+          };
+          this.ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.type === 'status' && this.options.onStatusChange) {
+                this.options.onStatusChange(data);
+              } else if (data.type === 'danmaku' || data.type === 'gift' || data.type === 'sc') {
+                if (this.options.onDanmaku) this.options.onDanmaku(data);
+              }
+            } catch(e) {}
+          };
+          this.ws.onerror = () => {
+            if (this.options.onStatusChange) this.options.onStatusChange({ connected: false, message: 'DISCONNECTED' });
+          };
+          this.ws.onclose = () => {
+            if (this.options.onStatusChange) this.options.onStatusChange({ connected: false, message: 'DISCONNECTED' });
+          };
+        } catch(e) {
+          if (this.options.onStatusChange) this.options.onStatusChange({ connected: false, message: 'ERROR' });
+        }
+      }
+    }
+
+    const connectBtn = document.getElementById('connectBtn');
+    const roomInput = document.getElementById('roomInput');
+    const hotRoomBtn = document.getElementById('hotRoomBtn');
+    const cookieBtn = document.getElementById('cookieBtn');
+
+    const bili = new BiliDanmaku({
+      onStatusChange: (status) => {
+        if (connectBtn) {
+          connectBtn.textContent = status.connected ? 'DISCONNECT' : 'CONNECT';
+          connectBtn.style.borderColor = status.connected ? '#76ff03' : '';
+        }
+      },
+      onDanmaku: (data) => {
+        addDanmaku(data);
+      }
+    });
+
+    if (connectBtn) {
+      connectBtn.addEventListener('click', () => {
+        if (connectBtn.textContent === 'DISCONNECT') {
+          if (bili.ws) bili.ws.close();
+          connectBtn.textContent = 'CONNECT';
+        } else {
+          bili.connect(parseRoomId(roomInput.value), localStorage.getItem('bili_sessdata'));
+        }
+      });
+    }
+
+    if (hotRoomBtn) {
+      hotRoomBtn.addEventListener('click', () => {
+        roomInput.value = 'https://live.bilibili.com/6';
+        bili.connect('6', localStorage.getItem('bili_sessdata'));
+      });
+    }
+
+    if (cookieBtn) {
+      cookieBtn.addEventListener('click', () => {
+        const curr = localStorage.getItem('bili_sessdata') || '';
+        const input = prompt('请输入 B站 SESSDATA 登录凭证：', curr);
+        if (input !== null) {
+          localStorage.setItem('bili_sessdata', input.trim());
+          bili.connect(parseRoomId(roomInput.value), input.trim());
+        }
+      });
+    }
+
     testBtn.addEventListener('click', () => {
       const pool = [
         { user: 'Xnmk_Marcus_SF', text: 'ctOS 2.0 节点破解成功！[status: 200, ping: 12ms]', guard: 3, medal: { name: '舰长', lv: 25 }, type: 'danmaku' },
