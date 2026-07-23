@@ -12,6 +12,10 @@ const HTTP_PORT = process.env.PORT || 8080;
 const WS_PORT = process.env.WS_PORT || 8787;
 const ROOT = __dirname; // Serving g:/产品/OBS/danmaku-frame
 
+if (process.stdin.resume) {
+  process.stdin.resume();
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -245,60 +249,47 @@ wss.on('connection', (clientWs) => {
         }, 30000);
       });
 
-      ws.on('message', (data) => {
-        if (currentSeq !== connectionSeq) return;
-        try {
-          if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) return;
-          const buf = Buffer.from(data);
-          if (buf.length < 16) return;
+      function parsePacketBuffer(buf) {
+        let offset = 0;
+        while (offset + 16 <= buf.length) {
+          const packLen = buf.readUInt32BE(offset);
+          if (packLen < 16 || offset + packLen > buf.length) break;
 
-          const headerLen = buf.readUInt16BE(4);
-          const protover = buf.readUInt16BE(6);
-          const opcode = buf.readUInt32BE(8);
-          const body = buf.subarray(headerLen);
+          const headerLen = buf.readUInt16BE(offset + 4);
+          const protover = buf.readUInt16BE(offset + 6);
+          const opcode = buf.readUInt32BE(offset + 8);
+          const body = buf.subarray(offset + headerLen, offset + packLen);
 
           // Opcode 8: Auth Reply
           if (opcode === 8) {
             const statusTag = conf.liveStatus === 1 ? 'LIVE' : (conf.liveStatus === 2 ? 'ROUND' : '未开播');
             console.log(`[RelayWS] B站 直播间 [${conf.realRoomId}] 鉴权成功！状态: ${statusTag}`);
             safeSend({ type: 'status', connected: true, message: `ROOM ${conf.realRoomId} (${statusTag})`, liveStatus: conf.liveStatus });
-            return;
-          }
-
+          } 
           // Opcode 3: Popularity Heartbeat Reply
-          if (opcode === 3) {
+          else if (opcode === 3) {
             if (body.length >= 4) {
               const popularity = body.readUInt32BE(0);
               safeSend({ type: 'popularity', value: popularity });
             }
-            return;
-          }
-
+          } 
           // Opcode 5: Danmaku & Notification Packets
-          if (opcode === 5) {
-            let decompressed = body;
-            try {
-              if (protover === 3) {
-                decompressed = zlib.brotliDecompressSync(body);
-              } else if (protover === 2) {
-                decompressed = zlib.inflateSync(body);
-              }
-            } catch (decompErr) {
-              console.error('[RelayWS] Decompression error:', decompErr.message);
-              return;
-            }
-
-            let offset = 0;
-            while (offset + 16 <= decompressed.length) {
-              const packLen = decompressed.readUInt32BE(offset);
-              if (packLen < 16 || offset + packLen > decompressed.length) {
-                break;
-              }
-              const packHeaderLen = decompressed.readUInt16BE(offset + 4);
-              const packBody = decompressed.subarray(offset + packHeaderLen, offset + packLen);
-
+          else if (opcode === 5) {
+            if (protover === 3 || protover === 2) {
+              let decompressed = null;
               try {
-                const json = JSON.parse(packBody.toString('utf-8'));
+                if (protover === 3) decompressed = zlib.brotliDecompressSync(body);
+                else if (protover === 2) decompressed = zlib.inflateSync(body);
+              } catch (e) {
+                decompressed = null;
+              }
+
+              if (decompressed) {
+                parsePacketBuffer(decompressed);
+              }
+            } else {
+              try {
+                const json = JSON.parse(body.toString('utf-8'));
                 if (json.cmd) {
                   if (json.cmd.includes('DANMU_MSG')) {
                     const info = json.info || [];
@@ -333,10 +324,18 @@ wss.on('connection', (clientWs) => {
                   }
                 }
               } catch (e) {}
-
-              offset += packLen;
             }
           }
+
+          offset += packLen;
+        }
+      }
+
+      ws.on('message', (data) => {
+        if (currentSeq !== connectionSeq) return;
+        try {
+          if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) return;
+          parsePacketBuffer(Buffer.from(data));
         } catch (err) {
           console.error('[RelayWS] Packet parsing error:', err.message);
         }
