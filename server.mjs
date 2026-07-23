@@ -231,14 +231,15 @@ wss.on('connection', (clientWs) => {
           try { ws.close(); } catch(e) {}
           return;
         }
-        console.log(`[RelayWS] WebSocket 已连通，发送 Opcode 7 鉴权包...`);
+        console.log(`[RelayWS] WebSocket 已连通，发送带登录 UID 凭证的 Opcode 7 鉴权包...`);
         const authPayload = JSON.stringify({
-          uid: 0,
+          uid: 316052822, // 您的 B站 登录 UID，自动解开某*****打码
           roomid: conf.realRoomId,
           protover: 3,
           platform: 'web',
           type: 2,
-          key: conf.token
+          key: conf.token,
+          buvid: 'F98F0559-221B-15A7-884D-2FEBEC08B5F025820infoc'
         });
         ws.send(makePacket(7, authPayload, 3));
 
