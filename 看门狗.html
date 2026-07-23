@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DedSec OS // Settings</title>
+    <!-- 引入黑客风格字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Rubik+Glitch&display=swap" rel="stylesheet">
+    <style>
+        /* --- 核心色彩与变量定义 --- */
+        :root {
+            --ds-green: #23ff00;
+            --ds-magenta: #ff0055;
+            --ds-cyan: #00f0ff;
+            --ds-yellow: #fffb00;
+            --bg-dark: #050505;
+            --panel-bg: rgba(12, 12, 16, 0.95);
+            --font-main: 'Share Tech Mono', monospace;
+            --font-pixel: 'VT323', monospace;
+            --font-glitch: 'Rubik Glitch', system-ui;
+        }
+
+        * { box-sizing: border-box; }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: var(--font-main);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: crosshair;
+        }
+
+        /* --- 背景视效：Canvas 终端数据流与 CRT 滤镜 --- */
+        #matrix-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; opacity: 0.15;
+        }
+
+        .crt-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 999;
+            pointer-events: none;
+            box-shadow: inset 0 0 120px rgba(0,0,0,0.9);
+        }
+
+        /* 模拟屏幕四周的系统状态 HUD */
+        .hud-stats {
+            position: absolute; top: 20px; right: 30px;
+            text-align: right; font-size: 0.85rem; color: var(--ds-cyan);
+            z-index: 5; line-height: 1.4; opacity: 0.7;
+        }
+        .hud-stats span { color: var(--ds-magenta); }
+
+        /* --- 主控制面板容器 --- */
+        .dedsec-panel {
+            position: relative; z-index: 10;
+            width: 960px; height: 640px;
+            display: flex; flex-direction: column;
+            background: var(--panel-bg);
+            border: 2px solid var(--ds-magenta);
+            clip-path: polygon(0 0, 95% 0, 100% 5%, 100% 100%, 5% 100%, 0 95%);
+            box-shadow: 20px 20px 0px rgba(255, 0, 85, 0.2), 
+                        inset 0 0 30px rgba(255, 0, 85, 0.1);
+        }
+
+        /* 危险警告斜纹装饰 */
+        .hazard-stripes {
+            height: 15px; width: 100%;
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--ds-magenta),
+                var(--ds-magenta) 10px,
+                #000 10px,
+                #000 20px
+            );
+            border-bottom: 2px solid #fff;
+        }
+
+        .panel-header {
+            height: 40px;
+            background: #000;
+            color: var(--ds-cyan);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px;
+            font-size: 1.2rem;
+            border-bottom: 1px solid var(--ds-magenta);
+        }
+        .blinking-cursor::after {
+            content: '_';
+            animation: blink 1s step-end infinite;
+        }
+
+        .main-content {
+            display: flex; flex: 1; height: calc(100% - 55px);
+        }
+
+        /* --- 左侧导航栏与 ASCII 艺术 --- */
+        .sidebar {
+            width: 260px;
+            border-right: 1px dashed var(--ds-cyan);
+            padding: 20px 0;
+            background: rgba(0,0,0,0.6);
+            display: flex; flex-direction: column;
+        }
+
+        .ascii-art {
+            color: var(--ds-green);
+            font-size: 0.55rem;
+            line-height: 1.1;
+            white-space: pre;
+            text-align: center;
+            margin-bottom: 20px;
+            opacity: 0.8;
+            text-shadow: 0 0 5px var(--ds-green);
+        }
+
+        .nav-item {
+            padding: 15px 25px;
+            font-size: 1.3rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            color: #999;
+            transition: all 0.1s steps(3);
+            display: flex; align-items: center;
+            position: relative;
+        }
+
+        .nav-item:hover {
+            color: #fff;
+            text-shadow: 3px 0 var(--ds-magenta), -3px 0 var(--ds-cyan);
+            transform: translateX(5px);
+            background: rgba(35, 255, 0, 0.1);
+        }
+
+        .nav-item.active {
+            background: var(--ds-green);
+            color: #000;
+            font-weight: bold;
+            clip-path: polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%);
+            border-left: 5px solid #fff;
+            text-shadow: none;
+            transform: translateX(10px);
+        }
+
+        /* --- 右侧设置内容区 --- */
+        .settings-area {
+            flex: 1; padding: 40px;
+            display: flex; flex-direction: column; gap: 15px;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .tab-title {
+            font-family: var(--font-glitch);
+            font-size: 3.5rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin-bottom: 15px;
+            text-shadow: 4px 4px 0px var(--ds-magenta), -2px -2px 0px var(--ds-cyan);
+        }
+
+        /* --- 设置行样式 --- */
+        .setting-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 1.2rem;
+            padding: 12px 15px;
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid transparent;
+            transition: all 0.1s;
+        }
+        
+        .setting-row:hover {
+            border-left: 3px solid var(--ds-magenta);
+            background: rgba(255, 0, 85, 0.1);
+        }
+
+        .setting-label { 
+            color: #eee; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .setting-label::before {
+            content: '[+]';
+            color: var(--ds-cyan);
+            font-size: 0.9rem;
+        }
+
+        .setting-control {
+            display: flex; align-items: center; gap: 15px;
+            color: var(--ds-green);
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+
+        /* 交互箭头与值 */
+        .arrow-btn {
+            color: #000; background: var(--ds-cyan);
+            padding: 2px 12px; cursor: pointer;
+            user-select: none;
+            clip-path: polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%);
+            transition: all 0.1s;
+        }
+        .arrow-btn:hover {
+            background: var(--ds-magenta);
+            color: #fff;
+            transform: scale(1.1);
+        }
+        .val-text { 
+            min-width: 160px; 
+            text-align: center; 
+            font-family: var(--font-pixel);
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+        }
+
+        /* 切换面板时的动画 */
+        .glitch-slice { animation: slice-anim 0.3s steps(4) forwards; }
+
+        @keyframes slice-anim {
+            0% { clip-path: inset(10% -10% 20% -10%); transform: translate(-10px, 5px); }
+            30% { clip-path: inset(80% -10% 5% -10%); transform: translate(10px, -5px); }
+            60% { clip-path: inset(40% -10% 40% -10%); transform: translate(-10px, 5px); }
+            100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+        }
+
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
+        ::-webkit-scrollbar-thumb { background: var(--ds-magenta); }
+    </style>
+</head>
+<body>
+
+    <!-- 顶层滤镜 -->
+    <div class="crt-overlay"></div>
+    
+    <!-- 底层终端背景流 -->
+    <canvas id="matrix-bg"></canvas>
+
+    <!-- 右上角假数据监控 -->
+    <div class="hud-stats">
+        MEM: <span id="mem-val">4096</span> MB<br>
+        CPU: <span id="cpu-val">42</span>% [ACTIVE]<br>
+        TEMP: <span>68°C</span><br>
+        NET: SECURE // ENCRYPTED
+    </div>
+
+    <!-- 主面板 -->
+    <div class="dedsec-panel">
+        <div class="hazard-stripes"></div>
+        <div class="panel-header">
+            <span>DEDSEC_OS // CONFIGURATION_UTILITY</span>
+            <span class="blinking-cursor">sys_admin_access_granted</span>
+        </div>
+
+        <div class="main-content">
+            <!-- 侧边导航 -->
+            <div class="sidebar">
+                <div class="ascii-art">
+      .---.
+    /       \
+   |  O   O  |
+   |    ^    |
+    \  ===  /
+     '-----'
+ D E D S E C
+                </div>
+                <div class="nav-item active" onclick="switchTab('display', this)">DISPLAY</div>
+                <div class="nav-item" onclick="switchTab('graphics', this)">GRAPHICS</div>
+                <div class="nav-item" onclick="switchTab('audio', this)">AUDIO</div>
+                <div class="nav-item" onclick="switchTab('controls', this)">CONTROLS</div>
+            </div>
+
+            <!-- 右侧设置区 -->
+            <div class="settings-area" id="content-panel">
+                <div class="tab-title scramble-text" id="tab-title-text">DISPLAY</div>
+                
+                <div class="setting-row">
+                    <div class="setting-label scramble-text">RESOLUTION</div>
+                    <div class="setting-control">
+                        <div class="arrow-btn" onclick="changeVal(this, -1)">-</div>
+                        <div class="val-text scramble-text" data-opts="1280x720,1920x1080,2560x1440,3840x2160">1920x1080</div>
+                        <div class="arrow-btn" onclick="changeVal(this, 1)">+</div>
+                    </div>
+                </div>
+                
+                <div class="setting-row">
+                    <div class="setting-label scramble-text">WINDOW MODE</div>
+                    <div class="setting-control">
+                        <div class="arrow-btn" onclick="changeVal(this, -1)">-</div>
+                        <div class="val-text scramble-text" data-opts="WINDOWED,FULLSCREEN,BORDERLESS">BORDERLESS</div>
+                        <div class="arrow-btn" onclick="changeVal(this, 1)">+</div>
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-label scramble-text">V-SYNC</div>
+                    <div class="setting-control">
+                        <div class="arrow-btn" onclick="changeVal(this, -1)">-</div>
+                        <div class="val-text scramble-text" data-opts="OFF,ON,ADAPTIVE">OFF</div>
+                        <div class="arrow-btn" onclick="changeVal(this, 1)">+</div>
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-label scramble-text">FIELD OF VIEW</div>
+                    <div class="setting-control">
+                        <div class="arrow-btn" onclick="changeVal(this, -5)">-</div>
+                        <div class="val-text scramble-text" data-opts="num:70:110">90</div>
+                        <div class="arrow-btn" onclick="changeVal(this, 5)">+</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 核心视觉脚本：黑客文本乱码解密 (Text Scrambler)
+        // ==========================================
+        class TextScrambler {
+            constructor() {
+                this.chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!<>-_\\/[]{}—=+*^?#';
+            }
+            
+            scramble(element, newText, duration = 400) {
+                const targetText = newText !== undefined ? newText : (element.getAttribute('data-original') || element.innerText);
+                element.setAttribute('data-original', targetText);
+                
+                let iteration = 0;
+                const intervalTime = 30; 
+                const maxIterations = duration / intervalTime;
+                
+                clearInterval(element.scrambleInterval);
+                
+                element.scrambleInterval = setInterval(() => {
+                    element.innerText = targetText.split('').map((char, index) => {
+                        if(char === ' ') return ' ';
+                        if(index < (iteration / maxIterations) * targetText.length) {
+                            return char; 
+                        }
+                        return this.chars[Math.floor(Math.random() * this.chars.length)];
+                    }).join('');
+                    
+                    if(iteration >= maxIterations) {
+                        clearInterval(element.scrambleInterval);
+                        element.innerText = targetText;
+                    }
+                    iteration++;
+                }, intervalTime);
+            }
+        }
+
+        const scrambler = new TextScrambler();
+
+        function runScrambleAll() {
+            document.querySelectorAll('.scramble-text').forEach(el => {
+                scrambler.scramble(el, undefined, 300 + Math.random() * 300);
+            });
+        }
+
+        window.onload = () => {
+            runScrambleAll();
+            initMatrixBg();
+            setInterval(updateHUD, 1000);
+        };
+
+        // 标签页切换逻辑
+        function switchTab(tabName, element) {
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            element.classList.add('active');
+
+            const panel = document.getElementById('content-panel');
+            panel.classList.remove('glitch-slice');
+            void panel.offsetWidth; // 触发重绘
+            panel.classList.add('glitch-slice');
+
+            // 更新标题并触发全部文本乱码
+            const titleEl = document.getElementById('tab-title-text');
+            scrambler.scramble(titleEl, tabName);
+            runScrambleAll();
+        }
+
+        // 选项值切换逻辑
+        function changeVal(btn, dir) {
+            const valEl = btn.parentElement.querySelector('.val-text');
+            const rawOpts = valEl.getAttribute('data-opts');
+            
+            let newValue = valEl.innerText;
+
+            if (rawOpts.startsWith('num:')) {
+                // 数字范围逻辑 (例如 num:70:110)
+                const parts = rawOpts.split(':');
+                const min = parseInt(parts[1]);
+                const max = parseInt(parts[2]);
+                let curr = parseInt(valEl.getAttribute('data-original') || valEl.innerText);
+                curr += dir;
+                if(curr > max) curr = max;
+                if(curr < min) curr = min;
+                newValue = curr.toString();
+            } else {
+                // 列表轮询逻辑 (例如 OFF,ON)
+                const opts = rawOpts.split(',');
+                let currIdx = opts.indexOf(valEl.getAttribute('data-original') || valEl.innerText);
+                if (currIdx === -1) currIdx = 0;
+                
+                currIdx += dir;
+                if (currIdx >= opts.length) currIdx = 0;
+                if (currIdx < 0) currIdx = opts.length - 1;
+                newValue = opts[currIdx];
+            }
+
+            scrambler.scramble(valEl, newValue, 200); // 极速乱码反馈
+            
+            // 添加轻微的横向抖动特效模拟故障
+            valEl.style.transform = `translateX(${Math.random() > 0.5 ? 4 : -4}px) scale(1.05)`;
+            valEl.style.color = 'var(--ds-magenta)';
+            setTimeout(() => { 
+                valEl.style.transform = 'none'; 
+                valEl.style.color = 'var(--ds-green)';
+            }, 80);
+        }
+
+        // ==========================================
+        // 辅助效果：假数据更新 & Matrix 终端背景流
+        // ==========================================
+        function updateHUD() {
+            document.getElementById('cpu-val').innerText = Math.floor(Math.random() * 80 + 10);
+            if(Math.random() > 0.7) {
+                document.getElementById('mem-val').innerText = Math.floor(Math.random() * 1024 + 3000);
+            }
+        }
+
+        function initMatrixBg() {
+            const canvas = document.getElementById('matrix-bg');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // 使用16进制数据流
+            const letters = '0123456789ABCDEF'.split('');
+            const fontSize = 14;
+            const columns = canvas.width / fontSize;
+            const drops = [];
+            for(let x = 0; x < columns; x++) drops[x] = Math.random() * canvas.height;
+            
+            function draw() {
+                ctx.fillStyle = 'rgba(5, 5, 5, 0.15)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 颜色随机混杂青色和绿色
+                ctx.fillStyle = Math.random() > 0.5 ? '#23ff00' : '#00f0ff';
+                ctx.font = fontSize + 'px "Share Tech Mono"';
+                
+                for(let i = 0; i < drops.length; i++) {
+                    const text = letters[Math.floor(Math.random() * letters.length)];
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    
+                    if(drops[i] * fontSize > canvas.height && Math.random() > 0.95)
+                        drops[i] = 0;
+                    drops[i]++;
+                }
+            }
+            setInterval(draw, 50);
+            
+            window.onresize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+        }
+    </script>
+</body>
+</html>

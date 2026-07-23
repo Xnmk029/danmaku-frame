@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LIVE FRAME — Danmaku Overlay</title>
+  <style>
+    :root {
+      --accent: #00e5ff;
+      --accent-dim: rgba(0, 229, 255, 0.15);
+      --accent-glow: rgba(0, 229, 255, 0.45);
+      --bg-panel: rgba(8, 10, 14, 0.82);
+      --bg-frame: rgba(8, 10, 14, 0.92);
+      --text-primary: #e8eaed;
+      --text-secondary: #8b929a;
+      --border: rgba(255, 255, 255, 0.08);
+      --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      --frame-thickness: 3px;
+      --danmaku-width: 340px;
+      --dm-font-size: 13px;
+      --dm-font-family: var(--font-mono);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    /* === 16:9 SCREEN FRAME === */
+    .frame-viewport {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .frame-outer {
+      position: relative;
+      width: calc(100vh * 16 / 9);
+      max-width: 100vw;
+      height: calc(100vw * 9 / 16);
+      max-height: 100vh;
+    }
+
+    /* Outer Border Glow — Active in RGB mode or Pulse FX mode */
+    .frame-glow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8;
+      box-shadow: none;
+      opacity: 0;
+      transition: opacity 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    .frame-outer.rgb-glow .frame-glow {
+      opacity: 1;
+      box-shadow: inset 0 0 80px 15px var(--accent-glow), inset 0 0 180px 35px var(--accent-dim);
+    }
+
+    /* Frame border lines — flat, geometric */
+    .frame-outer::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: var(--frame-thickness) solid var(--accent);
+      opacity: 0.85;
+      pointer-events: none;
+      z-index: 10;
+      transition: border-color 0.2s ease;
+    }
+
+    /* Inner hairline */
+    .frame-outer::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border: 1px solid var(--border);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Corner ticks — flat geometric accents */
+    .corner {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      z-index: 11;
+      pointer-events: none;
+    }
+
+    .corner::before,
+    .corner::after {
+      content: '';
+      position: absolute;
+      background: var(--accent);
+      transition: background 0.2s ease;
+    }
+
+    .corner::before {
+      width: 100%;
+      height: 2px;
+    }
+
+    .corner::after {
+      width: 2px;
+      height: 100%;
+    }
+
+    .corner.tl {
+      top: -2px;
+      left: -2px;
+    }
+
+    .corner.tr {
+      top: -2px;
+      right: -2px;
+    }
+
+    .corner.tr::before {
+      right: 0;
+    }
+
+    .corner.tr::after {
+      right: 0;
+    }
+
+    .corner.bl {
+      bottom: -2px;
+      left: -2px;
+    }
+
+    .corner.bl::before {
+      bottom: 0;
+    }
+
+    .corner.bl::after {
+      bottom: 0;
+    }
+
+    .corner.br {
+      bottom: -2px;
+      right: -2px;
+    }
+
+    .corner.br::before {
+      bottom: 0;
+      right: 0;
+    }
+
+    .corner.br::after {
+      bottom: 0;
+      right: 0;
+    }
+
+    /* === ACCENT COLOR BAR (bottom) === */
+    .accent-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--accent);
+      z-index: 12;
+      transition: background 0.3s ease;
+    }
+
+    /* ============================================================
+   DYNAMIC FX LIGHT MODES (APPLIED ACROSS ALL COLOR SCHEMES)
+   ============================================================ */
+
+    /* 1. Flowing Light Mode (流光) */
+    .frame-outer.fx-flow .accent-bar {
+      background: linear-gradient(90deg, var(--accent) 0%, #ffffff 50%, var(--accent) 100%);
+      background-size: 200% 100%;
+      animation: flow-beam 2.2s linear infinite;
+    }
+
+    .frame-outer.fx-flow::before {
+      animation: flow-border-pulse 2.2s ease-in-out infinite alternate;
+    }
+
+    .frame-outer.fx-flow .panel-header {
+      border-bottom-color: var(--accent);
+      animation: flow-header-beam 2.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes flow-beam {
+      0% {
+        background-position: 200% 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    @keyframes flow-border-pulse {
+      0% {
+        filter: drop-shadow(0 0 2px var(--accent)) brightness(1);
+      }
+
+      100% {
+        filter: drop-shadow(0 0 10px var(--accent)) brightness(1.35);
+      }
+    }
+
+    @keyframes flow-header-beam {
+      0% {
+        box-shadow: 0 2px 4px var(--accent-dim);
+      }
+
+      100% {
+        box-shadow: 0 2px 14px var(--accent-glow);
+      }
+    }
+
+    /* 2. Breathing Pulse Mode (呼吸) */
+    .frame-outer.fx-pulse::before,
+    .frame-outer.fx-pulse .corner::before,
+    .frame-outer.fx-pulse .corner::after,
+    .frame-outer.fx-pulse .accent-bar,
+    .frame-outer.fx-pulse .panel-header .dot {
+      animation: pulse-breath 2.8s ease-in-out infinite;
+    }
+
+    .frame-outer.fx-pulse .frame-glow {
+      opacity: 1;
+      animation: pulse-glow-breath 2.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse-breath {
+
+      0%,
+      100% {
+        opacity: 0.35;
+        filter: drop-shadow(0 0 1px var(--accent));
+      }
+
+      50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 10px var(--accent));
+      }
+    }
+
+    @keyframes pulse-glow-breath {
+
+      0%,
+      100% {
+        box-shadow: inset 0 0 25px 3px var(--accent-dim);
+      }
+
+      50% {
+        box-shadow: inset 0 0 75px 15px var(--accent-glow), inset 0 0 140px 30px var(--accent-dim);
+      }
+    }
+
+    /* === LEFT DANMAKU PANEL === */
+    .danmaku-panel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      bottom: 216px;
+      /* Lifted bottom by 200px from 16px */
+      width: var(--danmaku-width);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-frame);
+      border: 1px solid var(--border);
+      border-bottom: 2px solid var(--accent);
+      flex-shrink: 0;
+      transition: border-color 0.2s ease;
+    }
+
+    .panel-header .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      flex-shrink: 0;
+      transition: background 0.2s ease;
+    }
+
+    .panel-header .title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .panel-header .status {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+
+    .panel-header .status.live {
+      color: var(--accent);
+    }
+
+    .danmaku-feed {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 6px;
+      padding: 10px 0;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
+    }
+
+    /* Single danmaku row */
+    .dm-row {
+      padding: 6px 12px;
+      background: var(--bg-panel);
+      border-left: 2px solid transparent;
+      animation: dm-enter 0.2s ease-out;
+      line-height: 1.5;
+    }
+
+    /* 3-Tier Username Code Syntax Colors */
+    .dm-row .dm-user {
+      font-size: 11px;
+      margin-right: 6px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      white-space: normal;
+      word-break: break-all;
+      display: inline;
+    }
+
+    /* 1. Pure Chinese Usernames (纯中文) — Cyber Cyan */
+    .dm-row .dm-user.user-cjk {
+      color: #00e5ff;
+    }
+
+    /* 2. Pure English / ASCII Usernames (纯英文/数字) — Neon Magenta */
+    .dm-row .dm-user.user-ascii {
+      color: #ff0055;
+    }
+
+    /* 3. Mixed Chinese & English / Symbol Usernames (中英混合/符号) — Amber Gold */
+    .dm-row .dm-user.user-mixed {
+      color: #ffab00;
+    }
+
+    /* Guard Rank Overrides (Total / Vice Admiral / Captain) with Glow */
+    .dm-row .dm-user.guard-1 {
+      color: #f5c542 !important;
+      text-shadow: 0 0 6px rgba(245, 197, 66, 0.4);
+    }
+
+    .dm-row .dm-user.guard-2 {
+      color: #b388ff !important;
+      text-shadow: 0 0 6px rgba(179, 136, 255, 0.4);
+    }
+
+    .dm-row .dm-user.guard-3 {
+      color: #64b5f6 !important;
+      text-shadow: 0 0 6px rgba(100, 181, 246, 0.4);
+    }
+
+    .dm-row .dm-text {
+      font-size: var(--dm-font-size);
+      font-family: var(--dm-font-family);
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    /* Syntax Highlighting Tokens */
+    .dm-row .dm-sym {
+      color: var(--accent);
+      opacity: 0.95;
+      font-weight: 600;
+      padding: 0 1px;
+    }
+
+    .dm-row .dm-num {
+      color: #ffab00;
+      font-weight: 600;
+    }
+
+    .dm-row .dm-medal {
+      display: inline-block;
+      font-size: 9px;
+      padding: 0 4px;
+      margin-right: 5px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      vertical-align: middle;
+      line-height: 14px;
+    }
+
+    .dm-row.type-gift {
+      border-left-color: #ff6090;
+    }
+
+    .dm-row.type-sc {
+      border-left-color: #ffb300;
+      background: rgba(255, 179, 0, 0.08);
+    }
+
+    /* Scramble chars during decode */
+    .sc {
+      color: var(--accent);
+      opacity: 1;
+      background: var(--accent-dim);
+      font-weight: 700;
+    }
+
+    @keyframes dm-enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* === CONTROL BAR (top-right, hideable) === */
+    .ctrl-bar {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: var(--bg-frame);
+      border: 1px solid var(--border);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .ctrl-bar.hidden {
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+    }
+
+    .ctrl-bar input[type="text"],
+    .ctrl-bar input[type="number"] {
+      width: 220px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 4px 6px;
+      outline: none;
+    }
+
+    .ctrl-bar input[type="text"]:focus,
+    .ctrl-bar input[type="number"]:focus {
+      border-color: var(--accent);
+    }
+
+    .ctrl-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 4px 10px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    .ctrl-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .ctrl-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* Color bar control & RGB Swatch */
+    .color-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .color-swatch {
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.2);
+    }
+
+    .color-swatch.sel {
+      border-color: #fff;
+    }
+
+    .rgb-swatch {
+      background: linear-gradient(135deg, #ff0055, #76ff03, #00e5ff, #d500f9);
+      background-size: 300% 300%;
+      animation: rgb-gradient 4s linear infinite;
+      color: #fff;
+      border: 1px solid var(--border);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .rgb-swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .rgb-swatch.sel {
+      border-color: #fff;
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    @keyframes rgb-gradient {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--border);
+      background: none;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 1px;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+    }
+
+    /* Settings controls: width / font-size / font-family / FX mode */
+    .ctrl-sep {
+      width: 1px;
+      height: 16px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .ctrl-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+
+    .ctrl-label input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 56px;
+      height: 3px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .ctrl-label input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+    }
+
+    .ctrl-select {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 10px;
+      padding: 2px 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .ctrl-select option {
+      background: #0c0c10;
+      color: var(--text-primary);
+    }
+
+    .ctrl-select:focus {
+      border-color: var(--accent);
+    }
+
+    /* Toggle button when ctrl hidden */
+    .ctrl-toggle {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 51;
+      width: 24px;
+      height: 24px;
+      background: var(--bg-frame);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.4;
+      transition: opacity 0.2s;
+    }
+
+    .ctrl-toggle:hover {
+      opacity: 1;
+    }
+
+    /* === FRAME LABEL (bottom-right) === */
+    .frame-label {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--text-secondary);
+      opacity: 0.5;
+      z-index: 11;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="frame-viewport">
+    <div class="frame-outer" id="frameOuter">
+      <div class="frame-glow" id="frameGlow"></div>
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <div class="accent-bar" id="accentBar"></div>
+
+      <!-- Left Danmaku Panel -->
+      <div class="danmaku-panel">
+        <div class="panel-header">
+          <div class="dot"></div>
+          <span class="title">Danmaku</span>
+          <span class="status" id="statusText">OFFLINE</span>
+        </div>
+        <div class="danmaku-feed" id="danmakuFeed"></div>
+      </div>
+
+      <!-- Frame Label -->
+      <div class="frame-label">LIVE FRAME / 16:9</div>
+    </div>
+  </div>
+
+  <!-- Control Bar -->
+  <div class="ctrl-bar" id="ctrlBar">
+    <input type="text" id="roomInput" value="http://live.bilibili.com/30068664" placeholder="直播间链接或ID">
+    <button class="ctrl-btn" id="connectBtn">CONNECT</button>
+    <button class="ctrl-btn" id="cookieBtn" title="输入 SESSDATA 凭证解开 某**** 弹幕打码">COOKIE</button>
+    <button class="ctrl-btn" id="testBtn">TEST</button>
+    <button class="ctrl-btn" id="clearBtn">CLR</button>
+    <div class="color-ctrl">
+      <button class="rgb-swatch" id="rgbBtn" title="RGB Flow Glow Mode">RGB</button>
+      <div class="color-swatch sel" data-c="#00e5ff" style="background:#00e5ff"></div>
+      <div class="color-swatch" data-c="#76ff03" style="background:#76ff03"></div>
+      <div class="color-swatch" data-c="#ff1744" style="background:#ff1744"></div>
+      <div class="color-swatch" data-c="#d500f9" style="background:#d500f9"></div>
+      <div class="color-swatch" data-c="#ffab00" style="background:#ffab00"></div>
+      <input type="color" id="colorPick" value="#00e5ff">
+    </div>
+    <span class="ctrl-sep"></span>
+    <!-- Dynamic FX Light Mode Switch Button -->
+    <button class="ctrl-btn" id="fxBtn" title="全色系动态灯效开关 (点击切换 常亮/流光/呼吸)">FX: OFF</button>
+    <span class="ctrl-sep"></span>
+    <label class="ctrl-label">W<input type="range" id="widthRange" min="220" max="520" value="340" step="10"></label>
+    <label class="ctrl-label">F<input type="range" id="fontRange" min="11" max="22" value="13" step="1"></label>
+    <select id="fontSelect" class="ctrl-select">
+      <option value="'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace">Mono</option>
+      <option value="'Inter','Segoe UI','Helvetica Neue',sans-serif">Sans</option>
+      <option value="'Noto Sans SC','Microsoft YaHei',sans-serif">CJK</option>
+      <option value="'Source Code Pro','Courier New',monospace">Code</option>
+    </select>
+  </div>
+  <button class="ctrl-toggle" id="ctrlToggle">+</button>
+
+  <script>
+    /* ============================================================
+       SYNTAX HIGHLIGHTER FOR DANMAKU TEXT
+       ============================================================ */
+    function formatSyntax(text) {
+      if (!text) return '';
+      const esc = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      return esc.replace(/([0-9]+|[\{\}\[\]\(\)]|[!@#\$%\^&\*\+\=\-\/\\\|:<>\?`~,\._"']+)/g, (match) => {
+        if (/^[0-9]+$/.test(match)) {
+          return `<span class="dm-num">${match}</span>`;
+        } else {
+          return `<span class="dm-sym">${match}</span>`;
+        }
+      });
+    }
+
+    /* ============================================================
+       SCRAMBLE TEXT ENGINE — Watch Dogs style terminal decode
+       ============================================================ */
+    const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!<>-_\\/[]{}—=+*^?#アイウエオカキクケコサシスセソタチツテト';
+
+    class ScrambleText {
+      constructor() {
+        this.chars = SCRAMBLE_CHARS;
+      }
+
+      decode(el, text, opts = {}) {
+        const duration = opts.duration || 420;
+        const interval = 30;
+        const maxIter = Math.ceil(duration / interval);
+        let iteration = 0;
+
+        clearInterval(el._scrambleTimer);
+
+        el.style.transition = 'none';
+        if (el.parentElement) el.parentElement.style.transition = 'none';
+
+        return new Promise(resolve => {
+          el._scrambleTimer = setInterval(() => {
+            const progress = iteration / maxIter;
+            const revealCount = Math.floor(progress * text.length);
+
+            let out = '';
+            for (let i = 0; i < text.length; i++) {
+              if (text[i] === ' ') { out += ' '; continue; }
+              if (i < revealCount) {
+                out += text[i];
+              } else {
+                out += '<span class="sc">' + this.chars[Math.floor(Math.random() * this.chars.length)] + '</span>';
+              }
+            }
+            el.innerHTML = out;
+
+            const row = el.closest('.dm-row');
+            if (row && iteration % 2 === 0) {
+              row.style.transform = 'translateX(' + (Math.random() > 0.5 ? 2 : -2) + 'px)';
+            }
+
+            iteration++;
+            if (iteration > maxIter) {
+              clearInterval(el._scrambleTimer);
+              el.innerHTML = formatSyntax(text);
+              if (row) row.style.transform = 'none';
+              resolve();
+            }
+          }, interval);
+        });
+      }
+    }
+
+    /* ============================================================
+       DANMAKU RELAY CLIENT — ws://localhost:8787
+       ============================================================ */
+    class BiliDanmaku {
+      constructor(cb) {
+        this.cb = cb;
+        this.ws = null;
+        this.connected = false;
+        this._roomId = '';
+        this._cookie = '';
+      }
+
+      connect(roomId, cookie) {
+        this._roomId = roomId || '';
+        if (cookie) this._cookie = cookie;
+
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ action: 'subscribe', roomId: this._roomId }));
+          if (this._cookie) {
+            this.ws.send(JSON.stringify({ action: 'setCookie', cookie: this._cookie }));
+          }
+          return;
+        }
+
+        this.disconnect();
+        this.ws = new WebSocket(`ws://${location.hostname || 'localhost'}:8787`);
+
+        this.ws.onopen = () => {
+          this.connected = true;
+          if (this._cookie) {
+            this.ws.send(JSON.stringify({ action: 'setCookie', cookie: this._cookie }));
+          }
+          if (this._roomId) {
+            this.ws.send(JSON.stringify({ action: 'subscribe', roomId: this._roomId }));
+          }
+          this.cb.status(true, `ROOM ${this._roomId || 'READY'}`);
+        };
+
+        this.ws.onmessage = (ev) => {
+          try {
+            const d = JSON.parse(ev.data);
+            if (d.type === 'status') {
+              this.cb.status(d.connected, d.message);
+            } else if (d.type === 'popularity') {
+              this.cb.popularity(d.value);
+            } else if (d.text) {
+              this.cb.danmaku(d);
+            }
+          } catch (e) { }
+        };
+
+        this.ws.onerror = () => this.cb.status(false, 'ERROR');
+        this.ws.onclose = () => {
+          this.connected = false;
+          this.cb.status(false, 'OFFLINE');
+          clearTimeout(this._reconnect);
+          this._reconnect = setTimeout(() => this.connect(this._roomId, this._cookie), 3000);
+        };
+      }
+
+      setCookie(cookie) {
+        this._cookie = cookie || '';
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ action: 'setCookie', cookie: this._cookie }));
+        }
+      }
+
+      disconnect() {
+        clearTimeout(this._reconnect);
+        if (this.ws) {
+          if (this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ action: 'unsubscribe' }));
+          }
+          this.ws.onclose = null;
+          this.ws.close();
+          this.ws = null;
+        }
+        this.connected = false;
+        this.cb.status(false, 'OFFLINE');
+      }
+    }
+
+    /* ============================================================
+       UI CONTROLLER, RGB ENGINE & DYNAMIC FX LIGHT MODES
+       ============================================================ */
+    const feed = document.getElementById('danmakuFeed');
+    const statusText = document.getElementById('statusText');
+    const ctrlBar = document.getElementById('ctrlBar');
+    const ctrlToggle = document.getElementById('ctrlToggle');
+    const roomInput = document.getElementById('roomInput');
+    const connectBtn = document.getElementById('connectBtn');
+    const cookieBtn = document.getElementById('cookieBtn');
+    const testBtn = document.getElementById('testBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const colorPick = document.getElementById('colorPick');
+    const swatches = document.querySelectorAll('.color-swatch');
+    const rgbBtn = document.getElementById('rgbBtn');
+    const fxBtn = document.getElementById('fxBtn');
+    const frameOuter = document.getElementById('frameOuter');
+    const MAX_ROWS = 50;
+
+    let rgbActive = false;
+    let rgbHue = 0;
+    let rgbRaf = null;
+    let currentFx = 'none';
+
+    function toggleRGB(enable) {
+      rgbActive = typeof enable === 'boolean' ? enable : !rgbActive;
+      swatches.forEach(s => s.classList.remove('sel'));
+      rgbBtn.classList.toggle('sel', rgbActive);
+      frameOuter.classList.toggle('rgb-glow', rgbActive);
+
+      if (rgbActive) {
+        if (!rgbRaf) animateRGB();
+      } else {
+        if (rgbRaf) { cancelAnimationFrame(rgbRaf); rgbRaf = null; }
+      }
+    }
+
+    function animateRGB() {
+      if (!rgbActive) return;
+      rgbHue = (rgbHue + 0.8) % 360;
+      const accentHex = `hsl(${rgbHue}, 100%, 55%)`;
+      const dimHex = `hsla(${rgbHue}, 100%, 55%, 0.18)`;
+      const glowHex = `hsla(${rgbHue}, 100%, 55%, 0.45)`;
+
+      document.documentElement.style.setProperty('--accent', accentHex);
+      document.documentElement.style.setProperty('--accent-dim', dimHex);
+      document.documentElement.style.setProperty('--accent-glow', glowHex);
+
+      rgbRaf = requestAnimationFrame(animateRGB);
+    }
+
+    function setFX(fxMode) {
+      currentFx = fxMode || 'none';
+      frameOuter.classList.remove('fx-flow', 'fx-pulse');
+      if (currentFx === 'flow') {
+        frameOuter.classList.add('fx-flow');
+        fxBtn.textContent = 'FX: FLOW';
+        fxBtn.classList.add('active');
+      } else if (currentFx === 'pulse') {
+        frameOuter.classList.add('fx-pulse');
+        fxBtn.textContent = 'FX: PULSE';
+        fxBtn.classList.add('active');
+      } else {
+        fxBtn.textContent = 'FX: OFF';
+        fxBtn.classList.remove('active');
+      }
+    }
+
+    fxBtn.addEventListener('click', () => {
+      if (currentFx === 'none') setFX('flow');
+      else if (currentFx === 'flow') setFX('pulse');
+      else setFX('none');
+    });
+
+    function getScrambler() {
+      return new ScrambleText();
+    }
+
+    function parseRoomId(val) {
+      if (!val) return '30068664';
+      const m = val.toString().match(/(\d+)/);
+      return m ? m[1] : '30068664';
+    }
+
+    const bili = new BiliDanmaku({
+      status(on, msg) {
+        statusText.textContent = msg;
+        statusText.classList.toggle('live', on);
+        connectBtn.textContent = on ? 'DISCONNECT' : 'CONNECT';
+        connectBtn.classList.toggle('active', on);
+      },
+      popularity(val) {
+        const popStr = val > 10000 ? (val / 10000).toFixed(1) + '万' : val;
+        statusText.textContent = `ROOM ${parseRoomId(roomInput.value)} (🔥${popStr})`;
+      },
+      danmaku(data) { addDanmaku(data); }
+    });
+
+    function getUserClass(username) {
+      if (!username) return 'user-mixed';
+      // 1. Pure Chinese (CJK)
+      if (/^[\u4e00-\u9fa5]+$/.test(username)) {
+        return 'user-cjk';
+      }
+      // 2. Pure English / ASCII (letters, digits, spaces, dots, underscores)
+      if (/^[A-Za-z0-9_\s\-\.]+$/.test(username)) {
+        return 'user-ascii';
+      }
+      // 3. Mixed Chinese & English or Special Symbols
+      return 'user-mixed';
+    }
+
+    function addDanmaku(data) {
+      const row = document.createElement('div');
+      row.className = 'dm-row' + (data.type === 'gift' ? ' type-gift' : data.type === 'sc' ? ' type-sc' : '');
+
+      let html = '';
+      if (data.medal) {
+        html += `<span class="dm-medal">${data.medal.name} ${data.medal.lv}</span>`;
+      }
+      const uCls = getUserClass(data.user);
+      html += `<span class="dm-user ${uCls}${data.guard ? ' guard-' + data.guard : ''}">${data.user}</span>`;
+      html += `<span class="dm-text"></span>`;
+      row.innerHTML = html;
+      feed.appendChild(row);
+
+      while (feed.children.length > MAX_ROWS) feed.removeChild(feed.firstChild);
+
+      const textEl = row.querySelector('.dm-text');
+      const scr = getScrambler();
+      scr.decode(textEl, data.text, { duration: 420 });
+    }
+
+    /* Controls */
+    connectBtn.addEventListener('click', () => {
+      if (bili.connected) { bili.disconnect(); }
+      else { bili.connect(parseRoomId(roomInput.value), localStorage.getItem('bili_sessdata')); }
+    });
+
+    cookieBtn.addEventListener('click', () => {
+      const curr = localStorage.getItem('bili_sessdata') || '';
+      const input = prompt('请输入 B站 SESSDATA 登录凭证（可解开 B站 某**** 游客弹幕打码规则）：\n(提示：在 bilibili.com F12 -> Application -> Cookies -> SESSDATA 复制值)', curr);
+      if (input !== null) {
+        const val = input.trim();
+        localStorage.setItem('bili_sessdata', val);
+        if (val) {
+          bili.setCookie(val);
+          alert('SESSDATA 凭证已设置并应用！即将恢复显示完整真实用户名。');
+        } else {
+          alert('已清除登录凭证。');
+        }
+      }
+    });
+
+    clearBtn.addEventListener('click', () => { feed.innerHTML = ''; });
+
+    testBtn.addEventListener('click', () => {
+      const pool = [
+        { user: 'CyberPioneer_2077', text: '这个代码着色 + 流光/呼吸灯效太酷了！(x = 100, y = 200)', guard: 0, medal: { name: '粉丝', lv: 16 }, type: 'danmaku' },
+        { user: 'DedSec_Administrator_Alpha', text: 'Scramble text engine online -> System check [OK]', guard: 3, type: 'danmaku' },
+        { user: 'Neo_Matrix_Operator', text: 'Symbol syntax: { "status": 200, "fx": "flow/pulse" }', guard: 0, type: 'danmaku' },
+        { user: 'Super_Captain_Glitch', text: '全色系流光 + 呼吸灯效模式上线！', guard: 3, medal: { name: '舰长', lv: 30 }, type: 'danmaku' },
+        { user: 'Master_Gift_Giver', text: '赠送 摩天大楼 x100', type: 'gift' },
+        { user: 'BigWhale_SC_Vip', text: '[SC ¥666] 流光 & 呼吸灯效搭配全配色都极其沉浸！', type: 'sc' },
+        { user: 'WatchDogs_Terminal_User', text: 'アィウエオカキクケコ === 动态灯效切换成功 ===', guard: 2, type: 'danmaku' },
+      ];
+      addDanmaku(pool[Math.floor(Math.random() * pool.length)]);
+    });
+
+    /* Color control & RGB Toggle */
+    function setAccent(hex) {
+      toggleRGB(false);
+      document.documentElement.style.setProperty('--accent', hex);
+      const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+      document.documentElement.style.setProperty('--accent-dim', `rgba(${r},${g},${b},0.15)`);
+      document.documentElement.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.45)`);
+      colorPick.value = hex;
+      swatches.forEach(s => s.classList.toggle('sel', s.dataset.c === hex));
+    }
+
+    swatches.forEach(s => s.addEventListener('click', () => setAccent(s.dataset.c)));
+    colorPick.addEventListener('input', e => setAccent(e.target.value));
+    rgbBtn.addEventListener('click', () => toggleRGB());
+
+    /* Panel width / font-size / font-family controls */
+    const widthRange = document.getElementById('widthRange');
+    const fontRange = document.getElementById('fontRange');
+    const fontSelect = document.getElementById('fontSelect');
+
+    widthRange.addEventListener('input', e => {
+      document.documentElement.style.setProperty('--danmaku-width', e.target.value + 'px');
+    });
+    fontRange.addEventListener('input', e => {
+      document.documentElement.style.setProperty('--dm-font-size', e.target.value + 'px');
+    });
+    fontSelect.addEventListener('change', e => {
+      document.documentElement.style.setProperty('--dm-font-family', e.target.value);
+    });
+
+    /* Toggle ctrl */
+    ctrlToggle.addEventListener('click', () => {
+      ctrlBar.classList.toggle('hidden');
+    });
+
+    /* URL params for OBS */
+    (function initParams() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('room')) roomInput.value = p.get('room');
+      if (p.get('color')) setAccent(p.get('color'));
+      if (p.get('rgb') === 'true') toggleRGB(true);
+      if (p.get('fx')) setFX(p.get('fx'));
+      if (p.get('sessdata') || p.get('cookie')) {
+        const c = p.get('sessdata') || p.get('cookie');
+        localStorage.setItem('bili_sessdata', c);
+      }
+      if (p.get('width')) { widthRange.value = p.get('width'); document.documentElement.style.setProperty('--danmaku-width', p.get('width') + 'px'); }
+      if (p.get('fontsize')) { fontRange.value = p.get('fontsize'); document.documentElement.style.setProperty('--dm-font-size', p.get('fontsize') + 'px'); }
+      if (p.get('font')) { fontSelect.value = p.get('font'); document.documentElement.style.setProperty('--dm-font-family', p.get('font')); }
+      if (p.get('hidebar') === 'true') ctrlBar.classList.add('hidden');
+
+      const sessdata = localStorage.getItem('bili_sessdata') || '';
+      if (p.get('autoconnect') === 'true') bili.connect(parseRoomId(roomInput.value), sessdata);
+      else {
+        setTimeout(() => addDanmaku({ user: 'SYSTEM_ADMIN', text: 'LIVE FRAME ACTIVE — 全色系动态灯效 (流光/呼吸) 就绪！[Ready!]', guard: 0, type: 'danmaku' }), 400);
+      }
+    })();
+  </script>
+</body>
+
+</html>

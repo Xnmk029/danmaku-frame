@@ -1,0 +1,26 @@
+{
+  "name": "danmaku-frame",
+  "version": "1.0.0",
+  "description": "赛博朋克 / Matrix 极简风格 B站直播弹幕 H5 边框插件与中继服务器 (Danmaku Frame Overlay)",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "keywords": [
+    "bilibili",
+    "danmaku",
+    "obs",
+    "obs-studio",
+    "cyberpunk",
+    "matrix",
+    "scramble-text",
+    "websocket"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
