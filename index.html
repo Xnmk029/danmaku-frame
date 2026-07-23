@@ -4,21 +4,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LIVE FRAME — Danmaku Overlay</title>
+  <title>XNMK LIVE FRAME — Watch Dogs Branch UI (gemini3.6)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@600;700&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --accent: #76ff03;
-      --accent-dim: rgba(118, 255, 3, 0.15);
-      --accent-glow: rgba(118, 255, 3, 0.45);
-      --bg-panel: rgba(8, 10, 14, 0.82);
-      --bg-frame: rgba(8, 10, 14, 0.92);
-      --text-primary: #e8eaed;
-      --text-secondary: #8b929a;
-      --border: rgba(255, 255, 255, 0.08);
-      --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      --accent: #d4ff00;
+      --accent-dim: rgba(212, 255, 0, 0.15);
+      --accent-glow: rgba(212, 255, 0, 0.45);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.15);
+      --cyan-glow: rgba(0, 240, 255, 0.4);
+      --pink: #ff0055;
+      --pink-dim: rgba(255, 0, 85, 0.18);
+      --bg-dark: #0a0b0e;
+      --bg-panel: rgba(10, 11, 14, 0.88);
+      --bg-frame: rgba(8, 9, 12, 0.94);
+      --text-primary: #ffffff;
+      --text-secondary: #9098a8;
+      --border: rgba(255, 255, 255, 0.12);
+      --font-mono: 'Share Tech Mono', 'JetBrains Mono', 'Consolas', monospace;
+      --font-orbitron: 'Orbitron', 'Share Tech Mono', monospace;
+      --font-rajdhani: 'Rajdhani', sans-serif;
       --frame-thickness: 3px;
-      --danmaku-width: 240px;
-      --dm-font-size: 22px;
+      --danmaku-width: 260px;
+      --dm-font-size: 16px;
       --dm-font-family: var(--font-mono);
     }
 
@@ -32,18 +43,57 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      background: transparent;
+      background: #000000;
       font-family: var(--font-mono);
       color: var(--text-primary);
+      user-select: none;
     }
 
-    /* === 16:9 SCREEN FRAME === */
+    /* === WATCH DOGS CANVAS BACKGROUND === */
+    #cyberCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .crt-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.35;
+      z-index: 2;
+      background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+      background-size: 100% 4px;
+    }
+
+    .vignette-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at center, transparent 35%, rgba(5, 5, 8, 0.88) 100%);
+    }
+
+    /* Clip Path Utilities */
+    .clip-cyber-corner {
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    }
+
+    .clip-cyber-card {
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+    }
+
+    /* === 16:9 VIEWPORT & DEDSEC FRAME === */
     .frame-viewport {
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      z-index: 5;
     }
 
     .frame-outer {
@@ -52,9 +102,10 @@
       max-width: 100vw;
       height: calc(100vw * 9 / 16);
       max-height: 100vh;
+      background: rgba(10, 11, 14, 0.4);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
     }
 
-    /* Outer Border Glow — Active in RGB mode or Pulse FX mode */
     .frame-glow {
       position: absolute;
       inset: 0;
@@ -70,33 +121,57 @@
       box-shadow: inset 0 0 80px 15px var(--accent-glow), inset 0 0 180px 35px var(--accent-dim);
     }
 
-    /* Frame border lines — flat, geometric */
+    /* Watch Dogs Double Border */
     .frame-outer::before {
       content: '';
       position: absolute;
       inset: 0;
       border: var(--frame-thickness) solid var(--accent);
-      opacity: 0.85;
+      opacity: 0.9;
       pointer-events: none;
       z-index: 10;
-      transition: border-color 0.2s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    /* Inner hairline */
     .frame-outer::after {
       content: '';
       position: absolute;
       inset: 6px;
-      border: 1px solid var(--border);
+      border: 1px dashed rgba(0, 240, 255, 0.35);
       pointer-events: none;
       z-index: 10;
     }
 
-    /* Corner ticks — flat geometric accents */
+    /* Dynamic FX Modes — Theme-based Flow Light */
+    @keyframes fxFlowBeam {
+      0%, 100% {
+        box-shadow: 0 0 15px var(--accent-glow), inset 0 0 30px var(--accent-dim);
+        border-color: var(--accent);
+      }
+      50% {
+        box-shadow: 0 0 35px var(--accent-glow), inset 0 0 75px var(--accent-glow), 0 0 60px var(--accent-dim);
+        border-color: #ffffff;
+      }
+    }
+
+    @keyframes fxPulseAnimation {
+      0%, 100% { opacity: 0.85; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.002); }
+    }
+
+    .frame-outer.fx-flow::before {
+      animation: fxFlowBeam 2.2s ease-in-out infinite;
+    }
+
+    .frame-outer.fx-pulse {
+      animation: fxPulseAnimation 2.5s ease-in-out infinite;
+    }
+
+    /* Corner Ticks — DedSec Angular Accents */
     .corner {
       position: absolute;
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
       z-index: 11;
       pointer-events: none;
     }
@@ -111,429 +186,463 @@
 
     .corner::before {
       width: 100%;
-      height: 2px;
+      height: 3px;
     }
 
     .corner::after {
-      width: 2px;
+      width: 3px;
       height: 100%;
     }
 
-    .corner.tl {
-      top: -2px;
-      left: -2px;
-    }
+    .corner.tl { top: -3px; left: -3px; }
+    .corner.tr { top: -3px; right: -3px; }
+    .corner.tr::before { right: 0; }
+    .corner.tr::after { right: 0; }
+    .corner.bl { bottom: -3px; left: -3px; }
+    .corner.bl::before { bottom: 0; }
+    .corner.bl::after { bottom: 0; }
+    .corner.br { bottom: -3px; right: -3px; }
+    .corner.br::before { right: 0; bottom: 0; }
+    .corner.br::after { right: 0; bottom: 0; }
 
-    .corner.tr {
-      top: -2px;
-      right: -2px;
-    }
-
-    .corner.tr::before {
-      right: 0;
-    }
-
-    .corner.tr::after {
-      right: 0;
-    }
-
-    .corner.bl {
-      bottom: -2px;
-      left: -2px;
-    }
-
-    .corner.bl::before {
-      bottom: 0;
-    }
-
-    .corner.bl::after {
-      bottom: 0;
-    }
-
-    .corner.br {
-      bottom: -2px;
-      right: -2px;
-    }
-
-    .corner.br::before {
-      bottom: 0;
-      right: 0;
-    }
-
-    .corner.br::after {
-      bottom: 0;
-      right: 0;
-    }
-
-    /* === ACCENT COLOR BAR (bottom) === */
-    .accent-bar {
+    /* Top Telemetry Header */
+    .telemetry-header {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: var(--accent);
-      z-index: 12;
-      transition: background 0.3s ease;
-    }
-
-    /* ============================================================
-   DYNAMIC FX LIGHT MODES (APPLIED ACROSS ALL COLOR SCHEMES)
-   ============================================================ */
-
-    /* 1. Flowing Light Mode (四边环绕流光模式) */
-    .frame-outer.fx-flow::before {
-      border-image: linear-gradient(var(--flow-deg, 0deg), var(--accent) 0%, #ffffff 50%, var(--accent) 100%) 1;
-      animation: flow-border-rotate 2.8s linear infinite;
-    }
-
-    .frame-outer.fx-flow .corner::before,
-    .frame-outer.fx-flow .corner::after {
-      background: #ffffff;
-      box-shadow: 0 0 8px var(--accent);
-      animation: flow-corner-glow 1.4s ease-in-out infinite alternate;
-    }
-
-    .frame-outer.fx-flow .accent-bar {
-      background: linear-gradient(90deg, var(--accent) 0%, #ffffff 50%, var(--accent) 100%);
-      background-size: 200% 100%;
-      animation: flow-beam 2.2s linear infinite;
-      box-shadow: 0 0 10px var(--accent);
-    }
-
-    .frame-outer.fx-flow .panel-header {
-      border-bottom-color: var(--accent);
-      animation: flow-header-beam 2.2s ease-in-out infinite alternate;
-    }
-
-    @keyframes flow-beam {
-      0% {
-        background-position: 200% 0;
-      }
-      100% {
-        background-position: -200% 0;
-      }
-    }
-
-    @keyframes flow-border-rotate {
-      0% {
-        border-image-source: linear-gradient(0deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
-        filter: drop-shadow(0 0 3px var(--accent));
-      }
-      25% {
-        border-image-source: linear-gradient(90deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
-      }
-      50% {
-        border-image-source: linear-gradient(180deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
-        filter: drop-shadow(0 0 12px var(--accent-glow));
-      }
-      75% {
-        border-image-source: linear-gradient(270deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
-      }
-      100% {
-        border-image-source: linear-gradient(360deg, var(--accent) 10%, #ffffff 50%, var(--accent) 90%);
-        filter: drop-shadow(0 0 3px var(--accent));
-      }
-    }
-
-    @keyframes flow-corner-glow {
-      0% {
-        filter: brightness(1);
-        box-shadow: 0 0 4px var(--accent);
-      }
-      100% {
-        filter: brightness(1.6);
-        box-shadow: 0 0 12px #ffffff;
-      }
-    }
-
-    @keyframes flow-header-beam {
-      0% {
-        box-shadow: 0 2px 4px var(--accent-dim);
-      }
-
-      100% {
-        box-shadow: 0 2px 14px var(--accent-glow);
-      }
-    }
-
-    /* 2. Breathing Pulse Mode (呼吸) */
-    .frame-outer.fx-pulse::before,
-    .frame-outer.fx-pulse .corner::before,
-    .frame-outer.fx-pulse .corner::after,
-    .frame-outer.fx-pulse .accent-bar,
-    .frame-outer.fx-pulse .panel-header .dot {
-      animation: pulse-breath 2.8s ease-in-out infinite;
-    }
-
-    .frame-outer.fx-pulse .frame-glow {
-      opacity: 1;
-      animation: pulse-glow-breath 2.8s ease-in-out infinite;
-    }
-
-    @keyframes pulse-breath {
-
-      0%,
-      100% {
-        opacity: 0.35;
-        filter: drop-shadow(0 0 1px var(--accent));
-      }
-
-      50% {
-        opacity: 1;
-        filter: drop-shadow(0 0 10px var(--accent));
-      }
-    }
-
-    @keyframes pulse-glow-breath {
-
-      0%,
-      100% {
-        box-shadow: inset 0 0 25px 3px var(--accent-dim);
-      }
-
-      50% {
-        box-shadow: inset 0 0 75px 15px var(--accent-glow), inset 0 0 140px 30px var(--accent-dim);
-      }
-    }
-
-    /* === LEFT DANMAKU PANEL === */
-    .danmaku-panel {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      bottom: 216px;
-      /* Lifted bottom by 200px from 16px */
-      width: var(--danmaku-width);
+      top: 10px;
+      left: 14px;
+      right: 14px;
       display: flex;
-      flex-direction: column;
-      z-index: 20;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 12;
+      pointer-events: none;
+      font-size: 11px;
+      letter-spacing: 1px;
     }
 
-    .panel-header {
+    .dedsec-brand {
       display: flex;
       align-items: center;
       gap: 8px;
+      background: rgba(10, 11, 14, 0.85);
+      border: 1px solid var(--accent);
+      padding: 3px 10px;
+      font-family: var(--font-orbitron);
+      font-weight: 800;
+      color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-dim);
+    }
+
+    .dedsec-brand .skull-icon {
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
+    }
+
+    .telemetry-stats {
+      display: flex;
+      gap: 14px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      background: rgba(10, 11, 14, 0.7);
+      padding: 3px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stat-val {
+      color: var(--cyan);
+      font-family: var(--font-mono);
+    }
+
+    /* === LEFT DANMAKU PANEL (Elevated 300px from bottom for preview area) === */
+    .danmaku-panel {
+      position: absolute;
+      top: 42px;
+      left: 14px;
+      bottom: 348px; /* Elevated 300px above bottom */
+      width: var(--danmaku-width);
+      display: flex;
+      flex-direction: column;
+      pointer-events: none;
+      z-index: 12;
+
+      background: linear-gradient(180deg, rgba(10, 11, 14, 0.92) 0%, rgba(6, 7, 10, 0.82) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(0, 240, 255, 0.05);
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+      transition: width 0.2s ease, bottom 0.2s ease;
+    }
+
+    .panel-header {
       padding: 8px 12px;
-      background: var(--bg-frame);
-      border: 1px solid var(--border);
-      border-bottom: 2px solid var(--accent);
-      flex-shrink: 0;
-      transition: border-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 240, 255, 0.06);
     }
 
     .panel-header .dot {
-      width: 6px;
-      height: 6px;
-      background: var(--accent);
-      flex-shrink: 0;
-      transition: background 0.2s ease;
+      width: 7px;
+      height: 7px;
+      background: var(--pink);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--pink);
     }
 
     .panel-header .title {
+      font-family: var(--font-orbitron);
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 800;
+      color: var(--text-primary);
       letter-spacing: 1.5px;
       text-transform: uppercase;
-      color: var(--text-secondary);
     }
 
     .panel-header .status {
       margin-left: auto;
       font-size: 10px;
       color: var(--text-secondary);
-      letter-spacing: 0.5px;
+      font-weight: 700;
+      letter-spacing: 1px;
     }
 
     .panel-header .status.live {
       color: var(--accent);
+      text-shadow: 0 0 6px var(--accent-glow);
     }
 
     .danmaku-feed {
       flex: 1;
-      overflow: hidden;
+      overflow-y: hidden;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
+      padding: 8px;
       gap: 6px;
-      padding: 10px 0;
-      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
     }
 
-    /* Single danmaku row */
+    /* Watch Dogs Message Row Cards */
     .dm-row {
-      padding: 6px 12px;
-      background: var(--bg-panel);
-      border-left: 2px solid transparent;
-      animation: dm-enter 0.2s ease-out;
-      line-height: 1.5;
-    }
-
-    /* 3-Tier Username Code Syntax Colors */
-    .dm-row .dm-user {
-      font-size: 11px;
-      margin-right: 6px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      white-space: normal;
-      word-break: break-all;
-      display: inline;
-    }
-
-    /* 1. Pure Chinese Usernames (纯中文) — Cyber Cyan */
-    .dm-row .dm-user.user-cjk {
-      color: #00e5ff;
-    }
-
-    /* 2. Pure English / ASCII Usernames (纯英文/数字) — Neon Magenta */
-    .dm-row .dm-user.user-ascii {
-      color: #ff0055;
-    }
-
-    /* 3. Mixed Chinese & English / Symbol Usernames (中英混合/符号) — Amber Gold */
-    .dm-row .dm-user.user-mixed {
-      color: #ffab00;
-    }
-
-    /* Guard Rank Overrides (Total / Vice Admiral / Captain) with Glow */
-    .dm-row .dm-user.guard-1 {
-      color: #f5c542 !important;
-      text-shadow: 0 0 6px rgba(245, 197, 66, 0.4);
-    }
-
-    .dm-row .dm-user.guard-2 {
-      color: #b388ff !important;
-      text-shadow: 0 0 6px rgba(179, 136, 255, 0.4);
-    }
-
-    .dm-row .dm-user.guard-3 {
-      color: #64b5f6 !important;
-      text-shadow: 0 0 6px rgba(100, 181, 246, 0.4);
-    }
-
-    .dm-row .dm-text {
       font-size: var(--dm-font-size);
       font-family: var(--dm-font-family);
-      color: var(--text-primary);
+      line-height: 1.4;
+      padding: 6px 10px;
+      background: rgba(15, 18, 24, 0.75);
+      border-left: 3px solid var(--cyan);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
       word-break: break-all;
+      animation: dmSlideIn 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+      position: relative;
     }
 
-    /* Syntax Highlighting Tokens */
-    .dm-row .dm-sym {
+    @keyframes dmSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-15px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+
+    .dm-row .sc {
       color: var(--accent);
-      opacity: 0.95;
-      font-weight: 600;
-      padding: 0 1px;
+      opacity: 0.85;
+      font-weight: bold;
     }
 
-    .dm-row .dm-num {
-      color: #ffab00;
-      font-weight: 600;
-    }
-
-    .dm-row .dm-medal {
+    .dm-medal {
       display: inline-block;
-      font-size: 9px;
-      padding: 0 4px;
+      font-size: 10px;
+      font-family: var(--font-rajdhani);
+      font-weight: 700;
+      padding: 1px 5px;
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      border-radius: 2px;
       margin-right: 5px;
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      vertical-align: middle;
-      line-height: 14px;
+      text-transform: uppercase;
     }
 
+    .dm-user {
+      font-weight: 700;
+      margin-right: 6px;
+      color: var(--accent);
+    }
+
+    .dm-user.user-ascii { color: var(--cyan); }
+    .dm-user.user-cjk { color: var(--accent); }
+    .dm-user.user-mixed { color: #f43f5e; }
+
+    .dm-user.guard-3 {
+      color: #00f0ff;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+    }
+
+    .dm-user.guard-2 {
+      color: #ff0055;
+      text-shadow: 0 0 10px rgba(255, 0, 85, 0.7);
+    }
+
+    .dm-user.guard-1 {
+      color: #d4ff00;
+      text-shadow: 0 0 12px rgba(212, 255, 0, 0.8);
+    }
+
+    .dm-num { color: var(--cyan); font-weight: bold; }
+    .dm-sym { color: var(--pink); font-weight: bold; }
+
+    /* Special Gift & SuperChat Watch Dogs Alerts */
     .dm-row.type-gift {
-      border-left-color: #ff6090;
+      background: rgba(212, 255, 0, 0.12);
+      border-left-color: var(--accent);
+      border-top: 1px solid var(--accent);
+      box-shadow: 0 0 12px rgba(212, 255, 0, 0.2);
     }
 
     .dm-row.type-sc {
-      border-left-color: #ffb300;
-      background: rgba(255, 179, 0, 0.08);
+      background: rgba(255, 0, 85, 0.18);
+      border-left-color: var(--pink);
+      border-top: 1px solid var(--pink);
+      border-bottom: 1px solid var(--pink);
+      box-shadow: 0 0 16px rgba(255, 0, 85, 0.35);
     }
 
-    /* Scramble chars during decode */
-    .sc {
-      color: var(--accent);
-      opacity: 1;
-      background: var(--accent-dim);
-      font-weight: 700;
+    .dm-row.type-sc .dm-text {
+      color: #ffffff;
+      font-weight: bold;
     }
 
-    @keyframes dm-enter {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* === CONTROL BAR (top-right, hideable) === */
-    .ctrl-bar {
+    /* === DEDSEC BOTTOM TICKER STATUS BAR (Exact Layout Matching Image 2) === */
+    .bottom-ticker-bar {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      z-index: 50;
+      bottom: 12px;
+      left: 240px; /* Offset 240px from left border */
+      right: 14px;
+      height: 52px; /* Enhanced height for Image 2 layout proportion */
+      background: transparent;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      background: var(--bg-frame);
-      border: 1px solid var(--border);
-      transition: opacity 0.25s ease, transform 0.25s ease;
+      justify-content: space-between;
+      padding: 0 4px;
+      z-index: 12;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
     }
 
-    .ctrl-bar.hidden {
+    .bottom-ticker-bar.hidden {
       opacity: 0;
-      transform: translateY(-6px);
+      transform: translateY(15px);
       pointer-events: none;
     }
 
-    .ctrl-bar input[type="text"],
-    .ctrl-bar input[type="number"] {
-      width: 220px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      font-family: inherit;
-      font-size: 11px;
-      padding: 4px 6px;
-      outline: none;
+    .ticker-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
     }
 
-    .ctrl-bar input[type="text"]:focus,
-    .ctrl-bar input[type="number"]:focus {
-      border-color: var(--accent);
+    .ticker-left {
+      flex: 1;
+      overflow: hidden;
     }
 
-    .ctrl-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 11px;
-      padding: 4px 10px;
-      cursor: pointer;
-      letter-spacing: 0.5px;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-    }
-
-    .ctrl-btn:hover {
-      border-color: var(--accent);
+    .prompt-symbol {
       color: var(--accent);
+      font-size: 18px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 8px var(--accent-glow);
     }
 
-    .ctrl-btn.active {
+    .ticker-tag {
+      background: rgba(10, 11, 14, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: var(--text-secondary);
+      font-size: 14px;
+      padding: 4px 12px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .ticker-tag.tag-current {
       border-color: var(--accent);
       color: var(--accent);
       background: var(--accent-dim);
+      box-shadow: 0 0 10px var(--accent-dim);
     }
 
-    /* Color bar control & RGB Swatch */
+    .ticker-tag.tag-next {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      box-shadow: 0 0 10px var(--cyan-dim);
+    }
+
+    .ticker-text {
+      font-weight: 900;
+      font-size: 22px; /* High-visibility large font size matching Image 2 */
+      letter-spacing: 1px;
+      font-family: var(--font-mono);
+    }
+
+    .ticker-text.text-current {
+      color: var(--accent);
+      text-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .ticker-text.text-next {
+      color: var(--cyan);
+      font-size: 20px;
+      text-shadow: 0 0 14px var(--cyan-glow);
+    }
+
+    .ticker-divider {
+      width: 2px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.25);
+      margin: 0 8px;
+    }
+
+    .ticker-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      padding-top: 4px;
+    }
+
+    /* Yellow Accent line above Model badge matching Image 2 */
+    .ticker-right::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .ticker-label {
+      font-size: 15px;
+      color: var(--text-secondary);
+      letter-spacing: 1.5px;
+      font-weight: 700;
+    }
+
+    .model-badge {
+      font-family: var(--font-orbitron);
+      font-weight: 900;
+      font-size: 22px; /* Prominent block badge matching Image 2 */
+      color: #06070a;
+      background: var(--accent);
+      padding: 6px 20px;
+      letter-spacing: 1.5px;
+      box-shadow: 0 0 20px var(--accent-glow);
+      text-transform: uppercase;
+      border-radius: 1px;
+    }
+
+    /* Frame Label */
+    .frame-label {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: 10px;
+      font-family: var(--font-orbitron);
+      letter-spacing: 2px;
+      color: var(--text-secondary);
+      opacity: 0.6;
+      z-index: 11;
+    }
+
+    /* === CONTROL BAR === */
+    .ctrl-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      background: rgba(8, 9, 12, 0.95);
+      border-top: 1px solid var(--accent);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      z-index: 100;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.8);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .ctrl-bar.hidden {
+      transform: translateY(100%);
+    }
+
+    .ctrl-bar input[type="text"] {
+      height: 28px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-primary);
+      padding: 0 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-radius: 2px;
+    }
+
+    .ctrl-bar input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    #roomInput { width: 170px; }
+
+    .ctrl-btn {
+      height: 28px;
+      padding: 0 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .ctrl-btn:hover {
+      background: var(--accent);
+      color: #06070a;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .ctrl-btn.active {
+      background: var(--accent);
+      color: #06070a;
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .ctrl-sep {
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
     .color-ctrl {
       display: flex;
       align-items: center;
@@ -541,174 +650,89 @@
     }
 
     .color-swatch {
-      width: 14px;
-      height: 14px;
-      border: 1px solid var(--border);
+      width: 18px;
+      height: 18px;
+      border-radius: 2px;
       cursor: pointer;
-      transition: transform 0.15s;
-    }
-
-    .color-swatch:hover {
-      transform: scale(1.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
     .color-swatch.sel {
-      border-color: #fff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 8px currentColor;
     }
 
     .rgb-swatch {
-      background: linear-gradient(135deg, #ff0055, #76ff03, #00e5ff, #d500f9);
-      background-size: 300% 300%;
-      animation: rgb-gradient 4s linear infinite;
-      color: #fff;
-      border: 1px solid var(--border);
-      font-family: inherit;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 6px;
+      height: 20px;
+      padding: 0 6px;
+      font-size: 9px;
+      font-weight: 900;
+      background: linear-gradient(90deg, #ff0055, #d4ff00, #00f0ff);
+      border: none;
+      color: #000000;
       cursor: pointer;
-      transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .rgb-swatch:hover {
-      transform: scale(1.1);
-    }
-
-    .rgb-swatch.sel {
-      border-color: #fff;
-      box-shadow: 0 0 8px var(--accent);
-    }
-
-    @keyframes rgb-gradient {
-      0% {
-        background-position: 0% 50%;
-      }
-
-      50% {
-        background-position: 100% 50%;
-      }
-
-      100% {
-        background-position: 0% 50%;
-      }
+      border-radius: 2px;
     }
 
     input[type="color"] {
       -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      border: 1px solid var(--border);
+      width: 20px;
+      height: 20px;
+      border: none;
       background: none;
       cursor: pointer;
-      padding: 0;
-    }
-
-    input[type="color"]::-webkit-color-swatch-wrapper {
-      padding: 1px;
-    }
-
-    input[type="color"]::-webkit-color-swatch {
-      border: none;
-    }
-
-    /* Settings controls: width / font-size / font-family / FX mode */
-    .ctrl-sep {
-      width: 1px;
-      height: 16px;
-      background: var(--border);
-      flex-shrink: 0;
     }
 
     .ctrl-label {
+      font-size: 11px;
+      color: var(--text-secondary);
       display: flex;
       align-items: center;
       gap: 4px;
-      font-size: 10px;
-      color: var(--text-secondary);
-      letter-spacing: 0.5px;
     }
 
     .ctrl-label input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 56px;
-      height: 3px;
-      background: var(--border);
-      outline: none;
-      cursor: pointer;
-    }
-
-    .ctrl-label input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 8px;
-      height: 8px;
-      background: var(--accent);
-      border: none;
-      cursor: pointer;
+      width: 60px;
+      accent-color: var(--accent);
     }
 
     .ctrl-select {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 10px;
-      padding: 2px 4px;
-      outline: none;
-      cursor: pointer;
-    }
-
-    .ctrl-select option {
-      background: #0c0c10;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 0 4px;
     }
 
-    .ctrl-select:focus {
-      border-color: var(--accent);
-    }
-
-    /* Toggle button when ctrl hidden */
     .ctrl-toggle {
-      position: absolute;
-      top: 12px;
+      position: fixed;
+      bottom: 8px;
       right: 12px;
-      z-index: 51;
-      width: 24px;
-      height: 24px;
-      background: var(--bg-frame);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-size: 12px;
+      width: 28px;
+      height: 28px;
+      background: rgba(10, 11, 14, 0.9);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: bold;
       cursor: pointer;
+      z-index: 101;
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0.4;
-      transition: opacity 0.2s;
-    }
-
-    .ctrl-toggle:hover {
-      opacity: 1;
-    }
-
-    /* === FRAME LABEL (bottom-right) === */
-    .frame-label {
-      position: absolute;
-      bottom: 10px;
-      right: 14px;
-      font-size: 9px;
-      letter-spacing: 2px;
-      color: var(--text-secondary);
-      opacity: 0.5;
-      z-index: 11;
-      text-transform: uppercase;
     }
   </style>
 </head>
 
 <body>
+
+  <!-- Watch Dogs Cyber Matrix Canvas Background -->
+  <canvas id="cyberCanvas"></canvas>
+  <div class="crt-overlay"></div>
+  <div class="vignette-overlay"></div>
 
   <div class="frame-viewport">
     <div class="frame-outer" id="frameOuter">
@@ -717,16 +741,46 @@
       <div class="corner tr"></div>
       <div class="corner bl"></div>
       <div class="corner br"></div>
-      <div class="accent-bar" id="accentBar"></div>
 
-      <!-- Left Danmaku Panel -->
+      <!-- Watch Dogs Telemetry Header -->
+      <div class="telemetry-header">
+        <div class="dedsec-brand clip-cyber-corner">
+          <div class="skull-icon"></div>
+          Xnmk_OS v2.4.1
+        </div>
+        <div class="telemetry-stats">
+          <span>SYS:<span class="stat-val">ONLINE</span></span>
+          <span>CPU:<span class="stat-val" id="cpuStat">14%</span></span>
+          <span>MEM:<span class="stat-val" id="memStat">42%</span></span>
+          <span>NET:<span class="stat-val" id="netStat">12ms</span></span>
+        </div>
+      </div>
+
+      <!-- Left Danmaku Panel (Matching Image 2 proportion) -->
       <div class="danmaku-panel">
         <div class="panel-header">
           <div class="dot"></div>
-          <span class="title">Danmaku</span>
+          <span class="title">DANMAKU // XNMK</span>
           <span class="status" id="statusText">OFFLINE</span>
         </div>
         <div class="danmaku-feed" id="danmakuFeed"></div>
+      </div>
+
+      <!-- Watch Dogs DedSec Bottom Ticker Bar (Image 2 Layout) -->
+      <div class="bottom-ticker-bar" id="bottomTickerBar">
+        <div class="ticker-section ticker-left">
+          <span class="prompt-symbol">C:\Users\Administrator&gt;</span>
+          <span class="ticker-tag tag-current">当前测试项目</span>
+          <span class="ticker-text text-current" id="tickerCurrentDisplay">//AI视频编辑测试</span>
+          <span class="ticker-divider"></span>
+          <span class="ticker-tag tag-next">下一测试项目</span>
+          <span class="ticker-text text-next" id="tickerNextDisplay">GodotMCP</span>
+        </div>
+
+        <div class="ticker-section ticker-right">
+          <span class="ticker-label">当前模型</span>
+          <span class="model-badge" id="tickerModelDisplay">GEMINI 3.6</span>
+        </div>
       </div>
 
       <!-- Frame Label -->
@@ -736,37 +790,148 @@
 
   <!-- Control Bar -->
   <div class="ctrl-bar" id="ctrlBar">
-    <input type="text" id="roomInput" value="https://live.bilibili.com/30068664?visit_id=7npfj9a19us0" placeholder="直播间链接或ID">
+    <input type="text" id="roomInput" value="https://live.bilibili.com/30068664?visit_id=7npfj9a19us0" placeholder="直播间号/链接">
     <button class="ctrl-btn" id="connectBtn">CONNECT</button>
-    <button class="ctrl-btn" id="hotRoomBtn" title="切换到 6 号热播官方直播间">🔥官方热播6号</button>
-    <button class="ctrl-btn" id="cookieBtn" title="输入 SESSDATA 凭证解开 某**** 弹幕打码">COOKIE</button>
+    <button class="ctrl-btn" id="hotRoomBtn" title="官方热播6号">🔥官方6号</button>
+    <button class="ctrl-btn" id="cookieBtn" title="输入 SESSDATA 解开弹幕打码">COOKIE</button>
     <button class="ctrl-btn" id="testBtn">TEST</button>
     <button class="ctrl-btn" id="clearBtn">CLR</button>
+
     <div class="color-ctrl">
-      <button class="rgb-swatch" id="rgbBtn" title="RGB Flow Glow Mode">RGB</button>
-      <div class="color-swatch" data-c="#00e5ff" style="background:#00e5ff"></div>
-      <div class="color-swatch sel" data-c="#76ff03" style="background:#76ff03"></div>
-      <div class="color-swatch" data-c="#ff1744" style="background:#ff1744"></div>
-      <div class="color-swatch" data-c="#d500f9" style="background:#d500f9"></div>
+      <button class="rgb-swatch" id="rgbBtn" title="RGB Glow">RGB</button>
+      <div class="color-swatch sel" data-c="#d4ff00" style="background:#d4ff00"></div>
+      <div class="color-swatch" data-c="#00f0ff" style="background:#00f0ff"></div>
+      <div class="color-swatch" data-c="#ff0055" style="background:#ff0055"></div>
+      <div class="color-swatch" data-c="#9d00ff" style="background:#9d00ff"></div>
       <div class="color-swatch" data-c="#ffab00" style="background:#ffab00"></div>
-      <input type="color" id="colorPick" value="#76ff03">
+      <input type="color" id="colorPick" value="#d4ff00">
     </div>
+
     <span class="ctrl-sep"></span>
-    <!-- Dynamic FX Light Mode Switch Button -->
-    <button class="ctrl-btn" id="fxBtn" title="全色系动态灯效开关 (点击切换 常亮/流光/呼吸)">FX: OFF</button>
+    <button class="ctrl-btn" id="fxBtn" title="动态灯效开关 (常亮/流光/呼吸)">FX: OFF</button>
     <span class="ctrl-sep"></span>
-    <label class="ctrl-label">W<input type="range" id="widthRange" min="220" max="520" value="240" step="10"></label>
-    <label class="ctrl-label">F<input type="range" id="fontRange" min="11" max="22" value="22" step="1"></label>
+
+    <!-- Watch Dogs Bottom Ticker Controls -->
+    <input type="text" id="tickerCurrentInput" value="AI视频编辑测试" placeholder="当前测试项目" style="width: 110px;" title="修改当前测试项目">
+    <input type="text" id="tickerNextInput" value="GodotMCP" placeholder="下一测试项目" style="width: 85px;" title="修改下一测试项目">
+    <input type="text" id="tickerModelInput" value="GEMINI 3.6" placeholder="当前模型" style="width: 80px;" title="修改当前模型">
+    <button class="ctrl-btn active" id="tickerToggleBtn" title="开关底部状态栏">BAR: ON</button>
+    <span class="ctrl-sep"></span>
+
+    <label class="ctrl-label">W<input type="range" id="widthRange" min="220" max="520" value="260" step="10"></label>
+    <label class="ctrl-label">F<input type="range" id="fontRange" min="11" max="22" value="16" step="1"></label>
     <select id="fontSelect" class="ctrl-select">
-      <option value="'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace">Mono</option>
-      <option value="'Inter','Segoe UI','Helvetica Neue',sans-serif">Sans</option>
-      <option value="'Noto Sans SC','Microsoft YaHei',sans-serif">CJK</option>
-      <option value="'Source Code Pro','Courier New',monospace">Code</option>
+      <option value="'Share Tech Mono','JetBrains Mono',monospace">Tech Mono</option>
+      <option value="'Orbitron',monospace">Orbitron</option>
+      <option value="'Rajdhani',sans-serif">Rajdhani</option>
     </select>
   </div>
-  <button class="ctrl-toggle" id="ctrlToggle">+</button>
+  <button class="ctrl-toggle" id="ctrlToggle">⚙</button>
 
   <script>
+    /* ============================================================
+       WATCH DOGS CANVAS BACKGROUND ANIMATION
+       ============================================================ */
+    (function initCyberBackground() {
+      const canvas = document.getElementById('cyberCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let width = (canvas.width = window.innerWidth);
+      let height = (canvas.height = window.innerHeight);
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const nodes = Array.from({ length: 30 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.7,
+        vy: (Math.random() - 0.5) * 0.7,
+        char: String.fromCharCode(0x30a0 + Math.floor(Math.random() * 96))
+      }));
+
+      let scanY = 0;
+
+      function render() {
+        ctx.fillStyle = 'rgba(10, 11, 14, 0.45)';
+        ctx.fillRect(0, 0, width, height);
+
+        // Faint Cyber Grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+        const gridSize = 60;
+        for (let x = 0; x < width; x += gridSize) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        }
+        for (let y = 0; y < height; y += gridSize) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+        }
+
+        // SF City Wireframe Perspective Simulation
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.04)';
+        ctx.beginPath();
+        ctx.moveTo(width * 0.1, height);
+        ctx.lineTo(width * 0.4, height * 0.25);
+        ctx.lineTo(width * 0.7, height * 0.25);
+        ctx.lineTo(width * 0.95, height);
+        ctx.stroke();
+
+        // Connected ASCII Nodes
+        ctx.fillStyle = 'rgba(212, 255, 0, 0.6)';
+        ctx.font = '11px "Share Tech Mono", monospace';
+
+        nodes.forEach((node, i) => {
+          node.x += node.vx;
+          node.y += node.vy;
+          if (node.x < 0 || node.x > width) node.vx *= -1;
+          if (node.y < 0 || node.y > height) node.vy *= -1;
+
+          ctx.fillText(node.char, node.x, node.y);
+
+          for (let j = i + 1; j < nodes.length; j++) {
+            const n2 = nodes[j];
+            const dist = Math.hypot(node.x - n2.x, node.y - n2.y);
+            if (dist < 130) {
+              ctx.strokeStyle = `rgba(0, 240, 255, ${0.12 - dist / 1300})`;
+              ctx.beginPath();
+              ctx.moveTo(node.x, node.y);
+              ctx.lineTo(n2.x, n2.y);
+              ctx.stroke();
+            }
+          }
+        });
+
+        // Horizontal Scanline Sweep
+        scanY = (scanY + 1.5) % height;
+        ctx.strokeStyle = 'rgba(212, 255, 0, 0.08)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, scanY);
+        ctx.lineTo(width, scanY);
+        ctx.stroke();
+
+        // Glitch slice
+        if (Math.random() < 0.03) {
+          const sliceY = Math.random() * height;
+          ctx.fillStyle = 'rgba(255, 0, 85, 0.05)';
+          ctx.fillRect(0, sliceY, width, Math.random() * 15 + 2);
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      render();
+    })();
+
+    /* Realtime Telemetry Stats Simulation */
+    setInterval(() => {
+      document.getElementById('cpuStat').textContent = Math.floor(Math.random() * 15 + 10) + '%';
+      document.getElementById('memStat').textContent = Math.floor(Math.random() * 8 + 38) + '%';
+      document.getElementById('netStat').textContent = Math.floor(Math.random() * 6 + 10) + 'ms';
+    }, 2500);
+
     /* ============================================================
        SYNTAX HIGHLIGHTER FOR DANMAKU TEXT
        ============================================================ */
@@ -787,7 +952,7 @@
     }
 
     /* ============================================================
-       SCRAMBLE TEXT ENGINE — Watch Dogs style terminal decode
+       SCRAMBLE TEXT ENGINE — Watch Dogs DedSec Decode
        ============================================================ */
     const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!<>-_\\/[]{}—=+*^?#アイウエオカキクケコサシスセソタチツテト';
 
@@ -803,9 +968,6 @@
         let iteration = 0;
 
         clearInterval(el._scrambleTimer);
-
-        el.style.transition = 'none';
-        if (el.parentElement) el.parentElement.style.transition = 'none';
 
         return new Promise(resolve => {
           el._scrambleTimer = setInterval(() => {
@@ -841,7 +1003,7 @@
     }
 
     /* ============================================================
-       DANMAKU RELAY CLIENT — ws://localhost:8787
+       DANMAKU RELAY CLIENT — ws://localhost:8788
        ============================================================ */
     class BiliDanmaku {
       constructor(cb) {
@@ -866,7 +1028,7 @@
 
         this.disconnect();
         const host = (location.hostname && location.hostname !== 'null' && location.hostname !== '') ? location.hostname : '127.0.0.1';
-        this.ws = new WebSocket(`ws://${host}:8787`);
+        this.ws = new WebSocket(`ws://${host}:8788`);
 
         this.ws.onopen = () => {
           this.connected = true;
@@ -924,7 +1086,7 @@
     }
 
     /* ============================================================
-       UI CONTROLLER, RGB ENGINE & DYNAMIC FX LIGHT MODES
+       UI CONTROLLER & WATCH DOGS TICKER ENGINE
        ============================================================ */
     const feed = document.getElementById('danmakuFeed');
     const statusText = document.getElementById('statusText');
@@ -940,12 +1102,56 @@
     const rgbBtn = document.getElementById('rgbBtn');
     const fxBtn = document.getElementById('fxBtn');
     const frameOuter = document.getElementById('frameOuter');
-    const MAX_ROWS = 50;
 
+    /* Ticker Elements */
+    const bottomTickerBar = document.getElementById('bottomTickerBar');
+    const tickerCurrentDisplay = document.getElementById('tickerCurrentDisplay');
+    const tickerNextDisplay = document.getElementById('tickerNextDisplay');
+    const tickerModelDisplay = document.getElementById('tickerModelDisplay');
+
+    const tickerCurrentInput = document.getElementById('tickerCurrentInput');
+    const tickerNextInput = document.getElementById('tickerNextInput');
+    const tickerModelInput = document.getElementById('tickerModelInput');
+    const tickerToggleBtn = document.getElementById('tickerToggleBtn');
+
+    const MAX_ROWS = 50;
     let rgbActive = false;
     let rgbHue = 0;
     let rgbRaf = null;
     let currentFx = 'none';
+
+    function getScrambler() { return new ScrambleText(); }
+
+    function updateTickerDisplay(anim = true) {
+      const currentVal = tickerCurrentInput ? tickerCurrentInput.value.trim() : 'AI视频编辑测试';
+      const nextVal = tickerNextInput ? tickerNextInput.value.trim() : 'GodotMCP';
+      const modelVal = tickerModelInput ? tickerModelInput.value.trim() : 'GEMINI 3.6';
+
+      const formattedCurrent = currentVal.startsWith('//') ? currentVal : '//' + currentVal;
+
+      if (anim) {
+        const scr = getScrambler();
+        scr.decode(tickerCurrentDisplay, formattedCurrent, { duration: 360 });
+        scr.decode(tickerNextDisplay, nextVal, { duration: 360 });
+        scr.decode(tickerModelDisplay, modelVal, { duration: 360 });
+      } else {
+        tickerCurrentDisplay.textContent = formattedCurrent;
+        tickerNextDisplay.textContent = nextVal;
+        tickerModelDisplay.textContent = modelVal;
+      }
+    }
+
+    if (tickerCurrentInput) tickerCurrentInput.addEventListener('input', () => updateTickerDisplay(false));
+    if (tickerNextInput) tickerNextInput.addEventListener('input', () => updateTickerDisplay(false));
+    if (tickerModelInput) tickerModelInput.addEventListener('input', () => updateTickerDisplay(false));
+
+    if (tickerToggleBtn) {
+      tickerToggleBtn.addEventListener('click', () => {
+        const isHidden = bottomTickerBar.classList.toggle('hidden');
+        tickerToggleBtn.textContent = isHidden ? 'BAR: OFF' : 'BAR: ON';
+        tickerToggleBtn.classList.toggle('active', !isHidden);
+      });
+    }
 
     function toggleRGB(enable) {
       rgbActive = typeof enable === 'boolean' ? enable : !rgbActive;
@@ -997,10 +1203,6 @@
       else setFX('none');
     });
 
-    function getScrambler() {
-      return new ScrambleText();
-    }
-
     function parseRoomId(val) {
       if (!val) return '30068664';
       const str = val.toString().trim();
@@ -1032,22 +1234,15 @@
 
     function getUserClass(username) {
       if (!username) return 'user-mixed';
-      // 1. Pure Chinese (CJK)
-      if (/^[\u4e00-\u9fa5]+$/.test(username)) {
-        return 'user-cjk';
-      }
-      // 2. Pure English / ASCII (letters, digits, spaces, dots, underscores)
-      if (/^[A-Za-z0-9_\s\-\.]+$/.test(username)) {
-        return 'user-ascii';
-      }
-      // 3. Mixed Chinese & English or Special Symbols
+      if (/^[\u4e00-\u9fa5]+$/.test(username)) return 'user-cjk';
+      if (/^[A-Za-z0-9_\s\-\.]+$/.test(username)) return 'user-ascii';
       return 'user-mixed';
     }
 
     const userCache = new Map();
 
     function cleanUserName(user, medal) {
-      if (!user) return '匿名用户';
+      if (!user) return '匿名黑客';
       if (!user.includes('*')) {
         if (medal && medal.name) userCache.set(medal.name + '_' + medal.lv, user);
         return user;
@@ -1056,8 +1251,8 @@
         return userCache.get(medal.name + '_' + medal.lv);
       }
       if (/^某\*+$/.test(user) || (user.startsWith('某') && user.includes('*'))) {
-        if (medal && medal.name) return `${medal.name}·粉丝`;
-        return '弹幕观众';
+        if (medal && medal.name) return `${medal.name}·成员`;
+        return 'ctOS 匿名用户';
       }
       return user;
     }
@@ -1065,7 +1260,7 @@
     function addDanmaku(data) {
       const displayUser = cleanUserName(data.user, data.medal);
       const row = document.createElement('div');
-      row.className = 'dm-row' + (data.type === 'gift' ? ' type-gift' : data.type === 'sc' ? ' type-sc' : '');
+      row.className = 'dm-row clip-cyber-card' + (data.type === 'gift' ? ' type-gift' : data.type === 'sc' ? ' type-sc' : '');
 
       let html = '';
       if (data.medal) {
@@ -1084,7 +1279,7 @@
       scr.decode(textEl, data.text, { duration: 420 });
     }
 
-    /* Controls */
+    /* Controls Event Listeners */
     connectBtn.addEventListener('click', () => {
       if (bili.connected) { bili.disconnect(); }
       else { bili.connect(parseRoomId(roomInput.value), localStorage.getItem('bili_sessdata')); }
@@ -1092,16 +1287,12 @@
 
     cookieBtn.addEventListener('click', () => {
       const curr = localStorage.getItem('bili_sessdata') || '';
-      const input = prompt('请输入 B站 SESSDATA 登录凭证（可解开 B站 某**** 游客弹幕打码规则）：\n(提示：在 bilibili.com F12 -> Application -> Cookies -> SESSDATA 复制值)', curr);
+      const input = prompt('请输入 B站 SESSDATA 登录凭证：', curr);
       if (input !== null) {
         const val = input.trim();
         localStorage.setItem('bili_sessdata', val);
-        if (val) {
-          bili.setCookie(val);
-          alert('SESSDATA 凭证已设置并应用！即将恢复显示完整真实用户名。');
-        } else {
-          alert('已清除登录凭证。');
-        }
+        if (val) { bili.setCookie(val); alert('SESSDATA 凭证已保存！'); }
+        else { alert('凭证已清除。'); }
       }
     });
 
@@ -1109,18 +1300,17 @@
 
     testBtn.addEventListener('click', () => {
       const pool = [
-        { user: 'CyberPioneer_2077', text: '这个代码着色 + 流光/呼吸灯效太酷了！(x = 100, y = 200)', guard: 0, medal: { name: '粉丝', lv: 16 }, type: 'danmaku' },
-        { user: 'DedSec_Administrator_Alpha', text: 'Scramble text engine online -> System check [OK]', guard: 3, type: 'danmaku' },
+        { user: 'Xnmk_Marcus_SF', text: 'ctOS 2.0 节点破解成功！[status: 200, ping: 12ms]', guard: 3, medal: { name: '舰长', lv: 25 }, type: 'danmaku' },
+        { user: 'CyberPioneer_2077', text: '这个 Watch Dogs 看门狗科技感特效太顶了！(x = 100, y = 200)', guard: 0, medal: { name: '粉丝', lv: 16 }, type: 'danmaku' },
         { user: 'Neo_Matrix_Operator', text: 'Symbol syntax: { "status": 200, "fx": "flow/pulse" }', guard: 0, type: 'danmaku' },
-        { user: 'Super_Captain_Glitch', text: '全色系流光 + 呼吸灯效模式上线！', guard: 3, medal: { name: '舰长', lv: 30 }, type: 'danmaku' },
-        { user: 'Master_Gift_Giver', text: '赠送 摩天大楼 x100', type: 'gift' },
-        { user: 'BigWhale_SC_Vip', text: '[SC ¥666] 流光 & 呼吸灯效搭配全配色都极其沉浸！', type: 'sc' },
-        { user: 'WatchDogs_Terminal_User', text: 'アィウエオカキクケコ === 动态灯效切换成功 ===', guard: 2, type: 'danmaku' },
+        { user: 'Xnmk_Administrator_Alpha', text: 'Scramble text engine online -> System check [OK]', guard: 3, type: 'danmaku' },
+        { user: 'Master_Gift_Giver', text: '赠送 摩天大楼 x100 [XNMK ALERT]', type: 'gift' },
+        { user: 'BigWhale_SC_Vip', text: '[SC ¥666] 看门狗风格 DedSec 状态条与全套字符乱码解密太沉浸了！', type: 'sc' },
+        { user: 'WatchDogs_Terminal_User', text: 'アィウエオカキクケコ === 动态科技边框加载完成 ===', guard: 2, type: 'danmaku' },
       ];
       addDanmaku(pool[Math.floor(Math.random() * pool.length)]);
     });
 
-    /* Color control & RGB Toggle */
     function setAccent(hex) {
       toggleRGB(false);
       document.documentElement.style.setProperty('--accent', hex);
@@ -1135,7 +1325,6 @@
     colorPick.addEventListener('input', e => setAccent(e.target.value));
     rgbBtn.addEventListener('click', () => toggleRGB());
 
-    /* Panel width / font-size / font-family controls */
     const widthRange = document.getElementById('widthRange');
     const fontRange = document.getElementById('fontRange');
     const fontSelect = document.getElementById('fontSelect');
@@ -1150,16 +1339,15 @@
       document.documentElement.style.setProperty('--dm-font-family', e.target.value);
     });
 
-    /* Toggle ctrl */
     ctrlToggle.addEventListener('click', () => {
       ctrlBar.classList.toggle('hidden');
     });
 
-    /* URL params for OBS */
+    /* URL Parameters Initialization */
     (function initParams() {
       const p = new URLSearchParams(location.search);
       if (p.get('room')) roomInput.value = p.get('room');
-      setAccent(p.get('color') || '#76ff03');
+      setAccent(p.get('color') || '#d4ff00');
       if (p.get('rgb') === 'true') toggleRGB(true);
       setFX(p.get('fx') || 'flow');
       if (p.get('sessdata') || p.get('cookie')) {
@@ -1169,7 +1357,19 @@
       if (p.get('width')) { widthRange.value = p.get('width'); document.documentElement.style.setProperty('--danmaku-width', p.get('width') + 'px'); }
       if (p.get('fontsize')) { fontRange.value = p.get('fontsize'); document.documentElement.style.setProperty('--dm-font-size', p.get('fontsize') + 'px'); }
       if (p.get('font')) { fontSelect.value = p.get('font'); document.documentElement.style.setProperty('--dm-font-family', p.get('font')); }
+      if (p.get('current') && tickerCurrentInput) { tickerCurrentInput.value = p.get('current'); }
+      if (p.get('next') && tickerNextInput) { tickerNextInput.value = p.get('next'); }
+      if (p.get('model') && tickerModelInput) { tickerModelInput.value = p.get('model'); }
+      if (p.get('hideticker') === 'true') {
+        bottomTickerBar.classList.add('hidden');
+        if (tickerToggleBtn) {
+          tickerToggleBtn.textContent = 'BAR: OFF';
+          tickerToggleBtn.classList.remove('active');
+        }
+      }
       if (p.get('hidebar') === 'true') ctrlBar.classList.add('hidden');
+
+      updateTickerDisplay(false);
 
       const sessdata = localStorage.getItem('bili_sessdata') || '';
       if (p.get('autoconnect') !== 'false') {
