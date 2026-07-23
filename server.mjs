@@ -105,6 +105,20 @@ httpServer.listen(HTTP_PORT, () => {
 
 const BILI_COOKIE = 'buvid3=F98F0559-221B-15A7-884D-2FEBEC08B5F025820infoc; bili_jct=893c897c8f4dc994aa4844849c2f5a24; DedeUserID=316052822; DedeUserID__ckMd5=5ee3ef812737c655; sid=m7ooiehh';
 
+function cleanDanmakuUser(rawUser, uid, medal) {
+  if (!rawUser) return '匿名用户';
+  if (/^某\*+$/.test(rawUser) || (rawUser.startsWith('某') && rawUser.includes('*'))) {
+    if (medal && medal.name) {
+      return `${medal.name}·粉丝`;
+    }
+    if (uid) {
+      return `用户_${uid.toString().slice(-4)}`;
+    }
+    return '弹幕观众';
+  }
+  return rawUser;
+}
+
 // 2. Bilibili WebSocket Protocol Utilities
 async function getBilibiliDanmuConf(roomId) {
   const str = (roomId || '30068664').toString().trim();
@@ -303,20 +317,6 @@ wss.on('connection', (clientWs) => {
               safeSend({ type: 'popularity', value: popularity });
             }
           } 
-function cleanDanmakuUser(rawUser, uid, medal) {
-  if (!rawUser) return '匿名用户';
-  if (/^某\*+$/.test(rawUser) || (rawUser.startsWith('某') && rawUser.includes('*'))) {
-    if (medal && medal.name) {
-      return `${medal.name}·粉丝`;
-    }
-    if (uid) {
-      return `用户_${uid.toString().slice(-4)}`;
-    }
-    return '弹幕观众';
-  }
-  return rawUser;
-}
-
           // Opcode 5: Danmaku & Notification Packets
           else if (opcode === 5) {
             if (protover === 3 || protover === 2) {
