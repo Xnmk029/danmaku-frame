@@ -97,15 +97,17 @@ httpServer.listen(HTTP_PORT, () => {
 
 // 2. Bilibili WebSocket Protocol Utilities
 async function getBilibiliDanmuConf(roomId) {
-  const str = (roomId || '30068664').toString().trim();
-  const cleanId = str.match(/live\.bilibili\.com\/(\d+)/i)?.[1] || str.match(/\d+/)?.[0] || '30068664';
+  const str = (roomId || '6').toString().trim();
+  const cleanId = str.match(/live\.bilibili\.com\/(\d+)/i)?.[1] || str.match(/\d+/)?.[0] || '6';
   let realRoomId = parseInt(cleanId, 10);
+  let liveStatus = 0; // 0: 未开播, 1: 正在直播, 2: 轮播
   
   try {
     const r1 = await fetch(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${realRoomId}`);
     const d1 = await r1.json();
-    if (d1.data && d1.data.room_id) {
-      realRoomId = d1.data.room_id;
+    if (d1.data) {
+      if (d1.data.room_id) realRoomId = d1.data.room_id;
+      liveStatus = d1.data.live_status || 0;
     }
   } catch (e) {}
 
@@ -125,7 +127,7 @@ async function getBilibiliDanmuConf(roomId) {
     }
   } catch (e) {}
 
-  return { realRoomId, token, host, port };
+  return { realRoomId, token, host, port, liveStatus };
 }
 
 function makePacket(opcode, payloadStr, protover = 3) {
@@ -247,8 +249,9 @@ wss.on('connection', (clientWs) => {
 
         // Opcode 8: Auth Reply
         if (opcode === 8) {
-          console.log(`[RelayWS] B站 直播间 [${conf.realRoomId}] 鉴权成功！开始推送实时弹幕！`);
-          safeSend({ type: 'status', connected: true, message: `ROOM ${conf.realRoomId}` });
+          const statusTag = conf.liveStatus === 1 ? 'LIVE' : (conf.liveStatus === 2 ? 'ROUND' : '未开播');
+          console.log(`[RelayWS] B站 直播间 [${conf.realRoomId}] 鉴权成功！状态: ${statusTag}`);
+          safeSend({ type: 'status', connected: true, message: `ROOM ${conf.realRoomId} (${statusTag})`, liveStatus: conf.liveStatus });
           return;
         }
 

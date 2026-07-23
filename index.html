@@ -272,7 +272,8 @@
       position: absolute;
       top: 12px;
       left: 12px;
-      bottom: 24px;
+      bottom: 216px;
+      /* Lifted bottom by 200px from 16px */
       width: var(--danmaku-width);
       display: flex;
       flex-direction: column;
@@ -320,16 +321,14 @@
 
     .danmaku-feed {
       flex: 1;
-      overflow-y: auto;
-      scrollbar-width: none;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       gap: 6px;
       padding: 10px 0;
-    }
-    .danmaku-feed::-webkit-scrollbar {
-      display: none;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 100%);
     }
 
     /* Single danmaku row */
@@ -707,8 +706,9 @@
 
   <!-- Control Bar -->
   <div class="ctrl-bar" id="ctrlBar">
-    <input type="text" id="roomInput" value="http://live.bilibili.com/30068664" placeholder="直播间链接或ID">
+    <input type="text" id="roomInput" value="http://live.bilibili.com/6" placeholder="直播间链接或ID">
     <button class="ctrl-btn" id="connectBtn">CONNECT</button>
+    <button class="ctrl-btn" id="hotRoomBtn" title="切换到 6 号热播官方直播间">🔥官方热播6号</button>
     <button class="ctrl-btn" id="cookieBtn" title="输入 SESSDATA 凭证解开 某**** 弹幕打码">COOKIE</button>
     <button class="ctrl-btn" id="testBtn">TEST</button>
     <button class="ctrl-btn" id="clearBtn">CLR</button>
@@ -972,10 +972,18 @@
     }
 
     function parseRoomId(val) {
-      if (!val) return '30068664';
+      if (!val) return '6';
       const str = val.toString().trim();
       const m = str.match(/live\.bilibili\.com\/(\d+)/i) || str.match(/(\d+)/);
-      return m ? m[1] : '30068664';
+      return m ? m[1] : '6';
+    }
+
+    const hotRoomBtn = document.getElementById('hotRoomBtn');
+    if (hotRoomBtn) {
+      hotRoomBtn.addEventListener('click', () => {
+        roomInput.value = 'http://live.bilibili.com/6';
+        bili.connect('6', localStorage.getItem('bili_sessdata'));
+      });
     }
 
     const bili = new BiliDanmaku({
@@ -1021,7 +1029,6 @@
       feed.appendChild(row);
 
       while (feed.children.length > MAX_ROWS) feed.removeChild(feed.firstChild);
-      feed.scrollTop = feed.scrollHeight;
 
       const textEl = row.querySelector('.dm-text');
       const scr = getScrambler();
