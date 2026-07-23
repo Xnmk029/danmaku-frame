@@ -156,6 +156,7 @@ wss.on('connection', (clientWs) => {
 
   let activeBiliWs = null;
   let heartbeatTimer = null;
+  let connectionSeq = 0;
 
   function safeSend(msgObj) {
     try {
@@ -184,16 +185,36 @@ wss.on('connection', (clientWs) => {
 
   async function connectToBilibili(rawRoomId) {
     stopBiliWs();
+    const currentSeq = ++connectionSeq;
 
     safeSend({ type: 'status', connected: false, message: `CONNECTING...` });
     const conf = await getBilibiliDanmuConf(rawRoomId);
+
+    // 防竞态防孤儿 Socket：如果在 fetch 期间发起了新的连接请求，放弃本次旧请求
+    if (currentSeq !== connectionSeq) {
+      return;
+    }
+
     console.log(`[RelayWS] 正在建立 B站 弹幕连接 [房间号: ${conf.realRoomId}]...`);
 
     const wsUrl = `wss://${conf.host}:${conf.port}/sub`;
     const ws = new WebSocket(wsUrl);
+
+    // 创建即绑定 error 监听，防止任何阶段触发 Unhandled error
+    ws.on('error', (err) => {
+      console.error(`[RelayWS] B站 连接出错: ${err.message}`);
+      if (currentSeq === connectionSeq) {
+        safeSend({ type: 'status', connected: false, message: `ERROR` });
+      }
+    });
+
     activeBiliWs = ws;
 
     ws.on('open', () => {
+      if (currentSeq !== connectionSeq) {
+        ws.close();
+        return;
+      }
       console.log(`[RelayWS] WebSocket 已连通，发送 Opcode 7 鉴权包...`);
       const authPayload = JSON.stringify({
         uid: 0,
@@ -206,13 +227,14 @@ wss.on('connection', (clientWs) => {
       ws.send(makePacket(7, authPayload, 3));
 
       heartbeatTimer = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === WebSocket.OPEN && currentSeq === connectionSeq) {
           ws.send(makePacket(2, '[object Object]', 3));
         }
       }, 30000);
     });
 
     ws.on('message', (data) => {
+      if (currentSeq !== connectionSeq) return;
       try {
         if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) return;
         const buf = Buffer.from(data);
@@ -308,14 +330,11 @@ wss.on('connection', (clientWs) => {
     });
 
     ws.on('close', (code, reason) => {
-      console.log(`[RelayWS] B站 连接关闭: ${code} ${reason.toString()}`);
-      safeSend({ type: 'status', connected: false, message: `OFFLINE` });
-      stopBiliWs();
-    });
-
-    ws.on('error', (err) => {
-      console.error(`[RelayWS] B站 连接出错: ${err.message}`);
-      safeSend({ type: 'status', connected: false, message: `ERROR` });
+      if (currentSeq === connectionSeq) {
+        console.log(`[RelayWS] B站 连接关闭: ${code} ${reason.toString()}`);
+        safeSend({ type: 'status', connected: false, message: `OFFLINE` });
+        stopBiliWs();
+      }
     });
   }
 
