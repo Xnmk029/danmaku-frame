@@ -1114,9 +1114,8 @@
       if (p.get('hidebar') === 'true') ctrlBar.classList.add('hidden');
 
       const sessdata = localStorage.getItem('bili_sessdata') || '';
-      if (p.get('autoconnect') === 'true') bili.connect(parseRoomId(roomInput.value), sessdata);
-      else {
-        setTimeout(() => addDanmaku({ user: 'SYSTEM_ADMIN', text: 'LIVE FRAME ACTIVE — 全色系动态灯效 (流光/呼吸) 就绪！[Ready!]', guard: 0, type: 'danmaku' }), 400);
+      if (p.get('autoconnect') !== 'false') {
+        bili.connect(parseRoomId(roomInput.value), sessdata);
       }
     })();
   </script>
