@@ -12,10 +12,6 @@ const HTTP_PORT = process.env.PORT || 8080;
 const WS_PORT = process.env.WS_PORT || 8787;
 const ROOT = __dirname; // Serving g:/产品/OBS/danmaku-frame
 
-if (process.stdin.resume) {
-  process.stdin.resume();
-}
-
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -88,6 +84,10 @@ const httpServer = http.createServer((req, res) => {
       res.end(data);
     });
   });
+});
+
+httpServer.on('error', (err) => {
+  console.error('[HTTPServer Error]', err.message);
 });
 
 httpServer.listen(HTTP_PORT, () => {
@@ -212,9 +212,14 @@ wss.on('connection', (clientWs) => {
 
       const wsUrl = `wss://${conf.host}:${conf.port}/sub`;
       const ws = new WebSocket(wsUrl);
+
       ws.on('error', (err) => {
         console.error('[RelayWS] Socket Error Guarded:', err.message);
+        if (currentSeq === connectionSeq) {
+          safeSend({ type: 'status', connected: false, message: `ERROR` });
+        }
       });
+
       activeBiliWs = ws;
 
       ws.on('open', () => {
