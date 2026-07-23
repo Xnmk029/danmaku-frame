@@ -103,7 +103,8 @@ httpServer.listen(HTTP_PORT, () => {
   console.log(`====================================================`);
 });
 
-const BILI_COOKIE = 'buvid3=F98F0559-221B-15A7-884D-2FEBEC08B5F025820infoc; bili_jct=893c897c8f4dc994aa4844849c2f5a24; DedeUserID=316052822; DedeUserID__ckMd5=5ee3ef812737c655; sid=m7ooiehh';
+const BILI_COOKIE = 'SESSDATA=9180f64b%2C1800352205%2Cfb0c6%2A71CjDwUSiC1Oa-g8euJ4fQ77E50EZE9RxM5Uzv1lD2UheueAa5kBxlE3UahWyrE8HjUMASVmFqNkhoVklUQmZzUVJGS0hjQkJVcUhKT3BXWW04LXZfSFZMS1dPZUNYQmhib3d0U2d3OUVaWHNPcTU0dnNKODhrWWgzbmJIekZGczZLck15XzRXWVhnIIEC; buvid3=F98F0559-221B-15A7-884D-2FEBEC08B5F025820infoc; bili_jct=893c897c8f4dc994aa4844849c2f5a24; DedeUserID=316052822; DedeUserID__ckMd5=5ee3ef812737c655';
+const BILI_UID = 316052822;
 
 function cleanDanmakuUser(rawUser, uid, medal) {
   if (!rawUser) return '匿名用户';
@@ -147,8 +148,9 @@ async function getBilibiliDanmuConf(roomId) {
   let host = 'broadcastlv.chat.bilibili.com';
   let port = 443;
 
+  // 使用 bililive_dm 同款 getDanmuInfo v2 API (带 SESSDATA 鉴权)
   try {
-    const r2 = await fetch(`https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=${realRoomId}&platform=pc&player=web`, {
+    const r2 = await fetch(`https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id=${realRoomId}&type=0`, {
       headers: {
         'Cookie': BILI_COOKIE,
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -156,14 +158,35 @@ async function getBilibiliDanmuConf(roomId) {
       }
     });
     const d2 = await r2.json();
-    if (d2.data) {
+    console.log(`[RelayWS] getDanmuInfo 响应: code=${d2.code}`);
+    if (d2.code === 0 && d2.data) {
       token = d2.data.token || '';
-      if (d2.data.host_server_list && d2.data.host_server_list.length > 0) {
-        host = d2.data.host_server_list[0].host || host;
-        port = d2.data.host_server_list[0].wss_port || 443;
+      if (d2.data.host_list && d2.data.host_list.length > 0) {
+        host = d2.data.host_list[0].host || host;
+        port = d2.data.host_list[0].wss_port || 443;
+      }
+    } else {
+      // 降级到旧版 getConf API
+      console.log(`[RelayWS] getDanmuInfo 失败 (code=${d2.code})，降级到 getConf API...`);
+      const r3 = await fetch(`https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=${realRoomId}&platform=pc&player=web`, {
+        headers: {
+          'Cookie': BILI_COOKIE,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': `https://live.bilibili.com/${realRoomId}`
+        }
+      });
+      const d3 = await r3.json();
+      if (d3.data) {
+        token = d3.data.token || '';
+        if (d3.data.host_server_list && d3.data.host_server_list.length > 0) {
+          host = d3.data.host_server_list[0].host || host;
+          port = d3.data.host_server_list[0].wss_port || 443;
+        }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[RelayWS] getDanmuInfo 异常:', e.message);
+  }
 
   return { realRoomId, token, host, port, liveStatus };
 }
@@ -196,7 +219,6 @@ wss.on('connection', (clientWs) => {
 
   let activeBiliWs = null;
   let heartbeatTimer = null;
-  let antiDegradeTimer = null; // 90 秒防风控退化重连定时器
   let connectionSeq = 0;
 
   function safeSend(msgObj) {
@@ -210,10 +232,6 @@ wss.on('connection', (clientWs) => {
   }
 
   function stopBiliWs() {
-    if (antiDegradeTimer) {
-      clearTimeout(antiDegradeTimer);
-      antiDegradeTimer = null;
-    }
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer);
       heartbeatTimer = null;
@@ -268,7 +286,7 @@ wss.on('connection', (clientWs) => {
         }
         console.log(`[RelayWS] WebSocket 已连通，发送带 Cookie 凭证的 Opcode 7 鉴权包...`);
         const authPayload = JSON.stringify({
-          uid: 0,
+          uid: BILI_UID,
           roomid: conf.realRoomId,
           protover: 3,
           platform: 'web',
@@ -284,13 +302,7 @@ wss.on('connection', (clientWs) => {
           }
         }, 30000);
 
-        // 防退化重连定时器 (90 秒无感平滑刷新，防止 B站 退化为游客星号打码)
-        antiDegradeTimer = setTimeout(() => {
-          if (currentSeq === connectionSeq) {
-            console.log(`[RelayWS] 触发 90s 防打码退化无感刷新重连 [房间号: ${conf.realRoomId}]`);
-            connectToBilibili(rawRoomId);
-          }
-        }, 90000);
+        // 有了真实 SESSDATA，不再需要强制重连
       });
 
       function parsePacketBuffer(buf) {
