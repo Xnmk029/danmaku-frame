@@ -233,7 +233,7 @@ wss.on('connection', (clientWs) => {
         }
         console.log(`[RelayWS] WebSocket 已连通，发送带登录 UID 凭证的 Opcode 7 鉴权包...`);
         const authPayload = JSON.stringify({
-          uid: 316052822, // 您的 B站 登录 UID，自动解开某*****打码
+          uid: 0,
           roomid: conf.realRoomId,
           protover: 3,
           platform: 'web',
