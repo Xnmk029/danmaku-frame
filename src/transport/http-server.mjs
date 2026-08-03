@@ -53,22 +53,76 @@ function isPublicStaticPath(root, targetPath) {
   return !(segments.length === 1 && blockedFiles.has(segments[0]));
 }
 
-export function createHttpServer({ root, host, port, healthProvider = () => ({ ok: true }) }) {
+function isLoopbackAddress(address = '') {
+  return address === '127.0.0.1'
+    || address === '::1'
+    || address === '::ffff:127.0.0.1';
+}
+
+function readJsonBody(request, limit = 8192) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    request.on('data', chunk => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error('请求体过大'));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (!chunks.length) { resolve({}); return; }
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch {
+        reject(new Error('请求体必须是合法 JSON'));
+      }
+    });
+    request.on('error', reject);
+  });
+}
+
+function writeJson(response, statusCode, payload) {
+  const body = JSON.stringify(payload);
+  response.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
+  response.end(body);
+}
+
+export function createHttpServer({
+  root,
+  host,
+  port,
+  healthProvider = () => ({ ok: true }),
+  switchSceneHandler = null,
+  wsAuthToken = '',
+}) {
   const server = http.createServer((req, res) => {
+    const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+    // POST 仅用于 OBS 场景切换联动端点（开场待机页归零触发）
+    if (req.method === 'POST') {
+      if (parsedUrl.pathname === '/api/obs/switch-scene' && switchSceneHandler) {
+        handleSwitchScene(req, res, { switchSceneHandler, wsAuthToken });
+        return;
+      }
+      res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD, POST /api/obs/switch-scene' });
+      res.end('405 Method Not Allowed');
+      return;
+    }
+
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' });
       res.end('405 Method Not Allowed');
       return;
     }
 
-    const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     if (parsedUrl.pathname === '/healthz') {
-      const payload = JSON.stringify(healthProvider());
-      res.writeHead(200, {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-store',
-      });
-      res.end(payload);
+      writeJson(res, 200, healthProvider());
       return;
     }
 
@@ -111,4 +165,29 @@ export function createHttpServer({ root, host, port, healthProvider = () => ({ o
   };
 }
 
+async function handleSwitchScene(req, res, { switchSceneHandler, wsAuthToken }) {
+  let payload;
+  try {
+    payload = await readJsonBody(req);
+  } catch (error) {
+    writeJson(res, 400, { ok: false, error: error.message });
+    return;
+  }
+
+  // 鉴权：本机回环免 token；远程必须携带与 WS_AUTH_TOKEN 一致的 token
+  const isLoopback = isLoopbackAddress(req.socket.remoteAddress || '');
+  if (!isLoopback && (!wsAuthToken || payload.token !== wsAuthToken)) {
+    writeJson(res, 401, { ok: false, error: 'UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const result = await switchSceneHandler({ scene: payload.scene });
+    writeJson(res, 200, { ok: true, ...result });
+  } catch (error) {
+    writeJson(res, 502, { ok: false, error: error.message });
+  }
+}
+
+export { isLoopbackAddress, readJsonBody, writeJson };
 export { isPublicStaticPath, resolveStaticPath };

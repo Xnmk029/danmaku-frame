@@ -61,6 +61,11 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       ownerUid: env.BILIBILI_OWNER_UID?.trim() || '',
       adminUids: new Set(asList(env.BILIBILI_ADMIN_UIDS)),
     },
+    obs: {
+      websocketUrl: env.OBS_WEBSOCKET_URL?.trim() || '',
+      websocketPassword: env.OBS_WEBSOCKET_PASSWORD?.trim() || '',
+      defaultScene: env.OBS_DEFAULT_SCENE?.trim() || '',
+    },
     song: {
       enabled: asBoolean(env.SONG_REQUEST_ENABLED, true),
       musicDirectory: path.resolve(projectRoot, env.SONG_MUSIC_DIR?.trim() || 'music'),

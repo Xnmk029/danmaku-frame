@@ -19,6 +19,7 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr /C:":7789 " ^| findstr "LISTE
 echo.
 echo ----------------------------------------------------
 echo 📌 16:9 主弹幕边框地址: http://localhost:7788/index.html
+echo 🎬 开场待机倒计时页: http://localhost:7788/standby.html?duration=120
 echo 💻 看门狗监控测试控制台: http://localhost:7788/看门狗.html
 echo 📡 OBS 浏览器源链接: http://localhost:7788/index.html
 echo ⚙️ WebSocket 中继端口: ws://localhost:7789

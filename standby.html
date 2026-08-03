@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIVE FRAME // STANDBY</title>
+<!-- 与 index.html 同源字体（失败时自动降级等宽字体） -->
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   STANDBY — 开场待机（阈限空间）
+   极简赛博朋克，与 index.html 视觉语言对齐
+   Z 轴三层：BG 鸽子群 / MG 信息塔 / FG 倒计时+弹幕+粒子
+   异步循环：所有动画周期互质（4/7/11/13/17/19/23s）
+   ============================================================ */
+:root {
+  --accent: #d4ff00;
+  --accent-dim: rgba(212, 255, 0, 0.15);
+  --accent-glow: rgba(212, 255, 0, 0.45);
+  --cyan: #00f0ff;
+  --cyan-dim: rgba(0, 240, 255, 0.15);
+  --cyan-glow: rgba(0, 240, 255, 0.4);
+  --pink: #ff0055;
+  --pink-dim: rgba(255, 0, 85, 0.18);
+  --bg-dark: #0a0b0e;
+  --bg-panel: rgba(10, 11, 14, 0.88);
+  --text-primary: #ffffff;
+  --text-secondary: #9098a8;
+  --border: rgba(255, 255, 255, 0.12);
+  --font-mono: 'Share Tech Mono', 'JetBrains Mono', 'Consolas', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); }
+body {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  cursor: default;
+}
+
+/* ============ Z 轴分层 ============ */
+.layer { position: absolute; inset: 0; }
+.layer-bg { z-index: 0; }
+.layer-mg { z-index: 10; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.layer-fg { z-index: 20; pointer-events: none; }
+
+/* ============ BG：渐变 + 网格脉冲（17s 周期） ============ */
+.bg-gradient {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 95% at 50% 38%, #12161d 0%, var(--bg-dark) 58%, #050608 100%);
+}
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(212, 255, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 255, 0, 0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(95% 85% at 50% 42%, #000 25%, transparent 100%);
+  mask-image: radial-gradient(95% 85% at 50% 42%, #000 25%, transparent 100%);
+  animation: gridPulse 17s ease-in-out infinite;
+}
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.75; transform: scale(1.02); }
+}
+
+/* ============ BG：鸽子群（JS rAF 驱动，7/11/13s 相位） ============ */
+.bird {
+  position: absolute; left: 0; top: 0;
+  will-change: transform;
+  image-rendering: auto;
+  pointer-events: none;
+}
+
+/* ============ MG：中央信息塔（呼吸 4s 周期） ============ */
+.info-tower { text-align: center; user-select: none; animation: towerBreath 4s ease-in-out infinite; }
+@keyframes towerBreath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.016); }
+}
+.eyebrow {
+  font-size: 15px; letter-spacing: 0.62em; color: var(--accent);
+  text-transform: uppercase;
+  text-shadow: 0 0 14px var(--accent-glow), 0 0 40px var(--accent-dim);
+  margin-bottom: 22px;
+  padding-left: 0.62em; /* 抵消 letter-spacing 造成的视觉偏移 */
+}
+.countdown {
+  font-size: clamp(96px, 14vw, 158px);
+  line-height: 1; font-weight: 400; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 34px var(--accent-glow), 0 0 80px var(--accent-dim);
+  min-width: 3.2ch;
+  transition: color 0.4s ease, text-shadow 0.4s ease;
+}
+.countdown.urgent {
+  color: var(--pink);
+  text-shadow: 0 0 34px rgba(255, 0, 85, 0.5), 0 0 90px rgba(255, 0, 85, 0.28);
+  animation: heartBeat 1s ease-in-out infinite;
+}
+@keyframes heartBeat {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
+}
+.subtitle {
+  margin-top: 22px; font-size: 15px; color: var(--text-secondary);
+  letter-spacing: 0.34em; text-transform: uppercase;
+}
+.subtitle .dot { color: var(--cyan); text-shadow: 0 0 10px var(--cyan-glow); animation: dotBlink 2.13s step-end infinite; }
+@keyframes dotBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+/* ============ FG：四边极简边框 + 流动光带（23s 周期） ============ */
+.corner { position: absolute; width: 26px; height: 26px; opacity: 0.9; }
+.corner::before, .corner::after { content: ''; position: absolute; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.corner.tl { top: 14px; left: 14px; }
+.corner.tr { top: 14px; right: 14px; transform: scaleX(-1); }
+.corner.bl { bottom: 14px; left: 14px; transform: scaleY(-1); }
+.corner.br { bottom: 14px; right: 14px; transform: scale(-1); }
+.corner::before { width: 26px; height: 2px; top: 0; left: 0; }
+.corner::after  { width: 2px; height: 26px; top: 0; left: 0; }
+
+.edge {
+  position: absolute; height: 2px; width: 46%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.7; filter: blur(0.3px);
+}
+.edge.top { top: 0; left: 0; animation: edgeFlow 23s linear infinite; }
+.edge.top-r { top: 0; right: 0; animation: edgeFlow 23s linear infinite reverse; }
+.edge.bottom { bottom: 0; right: 0; animation: edgeFlow 23s linear infinite; }
+.edge.bottom-l { bottom: 0; left: 0; animation: edgeFlow 23s linear infinite reverse; }
+@keyframes edgeFlow {
+  0%   { transform: translateX(-18%); opacity: 0; }
+  8%   { opacity: 0.75; }
+  92%  { opacity: 0.75; }
+  100% { transform: translateX(118%); opacity: 0; }
+}
+
+/* ============ FG：粒子 Canvas ============ */
+#particles { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ============ FG：右侧弹幕预览面板（透明遮罩框） ============ */
+.dm-panel {
+  position: absolute; top: 60px; right: 34px; bottom: 64px;
+  width: 300px;
+  background: rgba(8, 9, 12, 0.42);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex; flex-direction: column;
+  opacity: 0.95;
+}
+.dm-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; font-size: 11px; letter-spacing: 0.22em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+}
+.dm-status { display: flex; align-items: center; gap: 6px; }
+.dm-status .led {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #444; transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.dm-status.on .led { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.dm-status.err .led { background: var(--pink); box-shadow: 0 0 8px rgba(255, 0, 85, 0.6); }
+.dm-feed {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 10px 12px; gap: 8px;
+}
+.dm-item {
+  font-size: 14px; line-height: 1.45; color: var(--text-primary);
+  opacity: 0; transform: translateY(8px);
+  animation: dmIn 0.5s ease forwards;
+  word-break: break-all;
+  text-shadow: 0 0 8px rgba(212, 255, 0, 0.25);
+}
+.dm-item .u { color: var(--cyan); margin-right: 8px; font-size: 12px; }
+.dm-item.fade { opacity: 0; transition: opacity 1.2s ease; animation: none; transform: none; }
+@keyframes dmIn { to { opacity: 1; transform: translateY(0); } }
+
+/* ============ FG：左下信息块 ============ */
+.info-block {
+  position: absolute; left: 34px; bottom: 64px;
+  font-size: 12px; color: var(--text-secondary);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  display: flex; flex-direction: column; gap: 6px;
+  max-width: 380px;
+}
+.info-block .row { display: flex; gap: 10px; align-items: baseline; }
+.info-block .k { color: var(--accent); opacity: 0.85; min-width: 9ch; }
+.info-block .v { color: var(--text-primary); opacity: 0.9; word-break: break-all; }
+
+/* ============ FG：右下时钟 ============ */
+.clock-block {
+  position: absolute; right: 34px; bottom: 64px;
+  text-align: right; user-select: none;
+}
+.clock-time {
+  font-size: 30px; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.08em;
+  text-shadow: 0 0 18px var(--cyan-glow);
+}
+.clock-date { font-size: 11px; color: var(--text-secondary); letter-spacing: 0.2em; margin-top: 4px; }
+
+/* ============ FG：BGM 波形（底部中央） ============ */
+#waveform {
+  position: absolute; left: 50%; bottom: 26px;
+  transform: translateX(-50%);
+  width: 520px; height: 42px;
+  opacity: 0.85;
+}
+
+/* ============ 释放（Release）转场 ============ */
+#flash {
+  position: absolute; inset: 0; z-index: 40;
+  background: #fff; opacity: 0; pointer-events: none;
+}
+#flash.go { animation: flashGo 0.55s ease-out forwards; }
+@keyframes flashGo {
+  0%   { opacity: 0; }
+  18%  { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+#startNow {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+}
+#startNow .big {
+  font-size: clamp(44px, 6.4vw, 76px);
+  letter-spacing: 0.3em; padding-left: 0.3em;
+  color: var(--accent);
+  text-transform: uppercase;
+  text-shadow: 0 0 40px var(--accent-glow), 0 0 110px var(--accent-dim);
+}
+#startNow .sub {
+  position: absolute; bottom: 19%; width: 100%; text-align: center;
+  font-size: 13px; color: var(--text-secondary); letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+#startNow.go { opacity: 1; pointer-events: none; }
+#startNow.go .big { animation: glitchIn 0.6s steps(6) forwards; }
+@keyframes glitchIn {
+  0%   { opacity: 0; transform: translate(-14px, 6px) skewX(8deg); filter: hue-rotate(90deg); }
+  40%  { opacity: 1; transform: translate(8px, -3px) skewX(-12deg); filter: hue-rotate(-60deg); }
+  70%  { transform: translate(-4px, 2px) skewX(4deg); filter: hue-rotate(30deg); }
+  100% { opacity: 1; transform: translate(0, 0) skewX(0); filter: hue-rotate(0); }
+}
+
+/* ============ 调试控制条（?hidebar=false 显示） ============ */
+#ctrlbar {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
+  z-index: 50; display: flex; gap: 8px; align-items: center;
+  padding: 5px 10px;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  font-size: 11px; letter-spacing: 0.12em; color: var(--text-secondary);
+  pointer-events: auto;
+}
+#ctrlbar button {
+  background: transparent; color: var(--accent); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  padding: 3px 10px; cursor: pointer;
+}
+#ctrlbar button:hover { background: var(--accent-dim); color: var(--accent); }
+#ctrlbar .sep { width: 1px; height: 14px; background: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ BG 层 ══════════ -->
+<div class="layer layer-bg">
+  <div class="bg-gradient"></div>
+  <div class="bg-grid"></div>
+  <!-- 鸽子群由 JS 注入 -->
+</div>
+
+<!-- ══════════ MG 层 ══════════ -->
+<div class="layer layer-mg">
+  <div class="info-tower" id="infoTower">
+    <div class="eyebrow" id="eyebrow">STARTING SOON</div>
+    <div class="countdown" id="countdown">02:00</div>
+    <div class="subtitle"><span class="dot">▮</span>&nbsp;PLEASE&nbsp;WAIT&nbsp;<span class="dot">▮</span></div>
+  </div>
+</div>
+
+<!-- ══════════ FG 层 ══════════ -->
+<div class="layer layer-fg">
+  <!-- 四角 + 光带 -->
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="edge top"></div><div class="edge top-r"></div>
+  <div class="edge bottom"></div><div class="edge bottom-l"></div>
+
+  <!-- 粒子 -->
+  <canvas id="particles"></canvas>
+
+  <!-- 弹幕预览面板 -->
+  <aside class="dm-panel" id="dmPanel">
+    <div class="dm-panel-head">
+      <span>DANMAKU FEED</span>
+      <span class="dm-status" id="dmStatus"><span class="led"></span><span id="dmStatusText">IDLE</span></span>
+    </div>
+    <div class="dm-feed" id="dmFeed"></div>
+  </aside>
+
+  <!-- 左下信息块 -->
+  <div class="info-block">
+    <div class="row"><span class="k">SCHEDULE</span><span class="v" id="scheduleText">--:-- LIVE</span></div>
+    <div class="row"><span class="k">SOCIAL</span><span class="v" id="socialText">live.bilibili.com</span></div>
+    <div class="row"><span class="k">ROOM</span><span class="v" id="roomText">--</span></div>
+  </div>
+
+  <!-- 右下时钟 -->
+  <div class="clock-block">
+    <div class="clock-time" id="clockTime">00:00:00</div>
+    <div class="clock-date" id="clockDate">----/--/--</div>
+  </div>
+
+  <!-- BGM 波形 -->
+  <canvas id="waveform" width="520" height="42"></canvas>
+
+  <!-- 释放转场 -->
+  <div id="flash"></div>
+  <div id="startNow"><div class="big" id="startNowBig">STARTING&nbsp;NOW</div><div class="sub" id="startNowSub">STANDBY COMPLETE</div></div>
+
+  <!-- 调试控制条 -->
+  <div id="ctrlbar" hidden>
+    <span>STANDBY</span>
+    <span class="sep"></span>
+    <button id="btnReset">RESET</button>
+    <button id="btnPause">PAUSE</button>
+    <button id="btnMode">CLOCK</button>
+    <span class="sep"></span>
+    <button id="btnTest">TEST RELEASE</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   STANDBY ENGINE
+   - 单一 rAF 时间轴驱动全部异步循环（互质周期防重复）
+   - 倒计时基于 endTime 对齐整秒（无 setInterval 漂移）
+   ============================================================ */
+
+/* ---------- 参数 ---------- */
+const params = new URLSearchParams(location.search);
+const cfg = {
+  duration: Math.min(3600, Math.max(10, parseInt(params.get('duration'), 10) || 120)),
+  mode: params.get('mode') === 'clock' ? 'clock' : 'countdown',
+  room: (params.get('room') || '').trim(),
+  bgm: (params.get('bgm') || '').trim(),
+  obsScene: (params.get('obsScene') || '').trim(),
+  hidebar: params.get('hidebar') !== 'false',
+  schedule: (params.get('schedule') || '--:-- LIVE').slice(0, 60),
+  social: (params.get('social') || 'live.bilibili.com').slice(0, 60),
+};
+
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const pad2 = n => String(n).padStart(2, '0');
+
+/* ---------- ScrambleText（轻量版，与 index.html 同语言） ---------- */
+const SCRAMBLE_CHARS = 'アイウエオカキクケコABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!<>-_\\/[]{}—=+*^?#';
+class ScrambleText {
+  constructor() { this.jobs = new Map(); }
+  run(el, target, { duration = 320, charsPerStep = 1.6 } = {}) {
+    const key = el;
+    if (this.jobs.has(key)) cancelAnimationFrame(this.jobs.get(key));
+    const start = performance.now();
+    const step = now => {
+      const t = (now - start) / duration;
+      if (t >= 1) { el.textContent = target; this.jobs.delete(key); return; }
+      const reveal = Math.floor(t * target.length);
+      el.textContent = target.split('').map((ch, i) =>
+        i < reveal ? ch : SCRAMBLE_CHARS[(Math.random() * SCRAMBLE_CHARS.length) | 0]
+      ).join('');
+      this.jobs.set(key, requestAnimationFrame(step));
+    };
+    this.jobs.set(key, requestAnimationFrame(step));
+  }
+}
+const scrambler = new ScrambleText();
+
+/* ---------- 状态机 ---------- */
+const state = {
+  phase: 'standby',        // standby | released
+  paused: false,
+  endTime: 0,
+  lastSecond: -1,
+  urgent: false,
+};
+
+/* ============================================================
+   BG：鸽子群（异步循环：7s / 11s / 13s 三组相位漂移）
+   ============================================================ */
+const BIRD_SRC = 'assets/pigeon-fly.gif';
+function spawnShoal(count = 9) {
+  const bg = document.querySelector('.layer-bg');
+  const W = window.innerWidth;
+  const birds = [];
+  const periods = [7, 11, 13]; // 互质周期
+  for (let i = 0; i < count; i++) {
+    const img = document.createElement('img');
+    img.className = 'bird';
+    img.src = BIRD_SRC;
+    img.draggable = false;
+    bg.appendChild(img);
+    const w = W * (0.05 + Math.random() * 0.45);   // 大小 5%~50%
+    const bird = {
+      img,
+      w,
+      x: Math.random() * (W + w * 2) - w,          // 起始可超出视口
+      y: window.innerHeight * (0.06 + Math.random() * 0.88),
+      dir: Math.random() < 0.5 ? 1 : -1,
+      speed: (4 + Math.random() * 11) * (w / 120), // 大鸟稍快，正比尺寸
+      amp: 6 + Math.random() * 22,                 // 垂直浮动幅度
+      phase: Math.random() * Math.PI * 2,
+      period: periods[i % periods.length],         // 互质周期分组
+      opacity: 0.05 + Math.random() * 0.2,         // 透明度 0.05~0.25
+      flip: Math.random() < 0.5,
+      bob: Math.random() < 0.5 ? 1 : -1,
+    };
+    img.style.width = `${w}px`;
+    img.style.opacity = String(bird.opacity);
+    birds.push(bird);
+  }
+  return birds;
+}
+
+function updateShoal(birds, t) {
+  const W = window.innerWidth, H = window.innerHeight;
+  for (const b of birds) {
+    const phase = (t / b.period + b.phase) % (Math.PI * 2);
+    b.x += b.dir * b.speed;
+    const y = b.y + Math.sin(phase) * b.amp;
+    // 出界回绕（换高度与浮动参数，避免可感知的机械循环）
+    if ((b.dir > 0 && b.x - b.w > W) || (b.dir < 0 && b.x + b.w < 0)) {
+      b.dir *= -1;
+      b.x = clamp(b.x, -b.w, W);
+      b.y = H * (0.06 + Math.random() * 0.88);
+      b.amp = 6 + Math.random() * 22;
+      b.period = [7, 11, 13][(Math.random() * 3) | 0];
+    }
+    const flip = b.flip ? -1 : 1;
+    b.img.style.transform = `translate(${b.x}px, ${y}px) scaleX(${flip * (b.dir > 0 ? 1 : -1) * (b.bob ? 1 : 1)})`;
+  }
+}
+
+/* ============================================================
+   FG：尘埃粒子（Canvas，随机生命周期重生）
+   ============================================================ */
+function createParticles() {
+  const canvas = $('particles');
+  const ctx = canvas.getContext('2d');
+  let W, H, dpr;
+  const list = [];
+  const COUNT = 34;
+  const resize = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  const spawn = () => ({
+    x: Math.random() * W,
+    y: H + 8 + Math.random() * 40,
+    r: 0.6 + Math.random() * 1.7,
+    vy: 2.2 + Math.random() * 6,
+    vx: (Math.random() - 0.5) * 0.5,
+    tw: Math.random() * Math.PI * 2,
+    tws: 0.6 + Math.random() * 1.6,
+    cyan: Math.random() < 0.16,
+  });
+  for (let i = 0; i < COUNT; i++) list.push(spawn());
+  resize();
+  window.addEventListener('resize', resize);
+
+  return (t) => {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of list) {
+      p.y -= p.vy; p.x += p.vx; p.tw += p.tws * 0.016;
+      if (p.y < -10) Object.assign(p, spawn(), { y: H + 8 });
+      const a = 0.08 + 0.22 * (0.5 + 0.5 * Math.sin(p.tw));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.cyan
+        ? `rgba(0, 240, 255, ${a * 0.8})`
+        : `rgba(212, 255, 0, ${a})`;
+      ctx.fill();
+    }
+  };
+}
+
+/* ============================================================
+   倒计时（Tension）：MM:SS + Scramble 过渡 + 最后 10s 张力
+   ============================================================ */
+const countdownEl = $('countdown');
+const eyebrowEl = $('eyebrow');
+const subtitleEl = document.querySelector('.subtitle');
+
+function fmtCountdown(seconds) {
+  const s = Math.max(0, seconds);
+  return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`;
+}
+
+function resetCountdown() {
+  state.endTime = performance.now() + cfg.duration * 1000;
+  state.lastSecond = -1;
+  state.urgent = false;
+  countdownEl.classList.remove('urgent');
+  countdownEl.textContent = fmtCountdown(cfg.duration);
+  eyebrowEl.textContent = 'STARTING SOON';
+  subtitleEl.style.opacity = '1';
+}
+
+function updateCountdown(now) {
+  const remainingMs = Math.max(0, state.endTime - now);
+  const second = Math.ceil(remainingMs / 1000);
+  if (second !== state.lastSecond) {
+    state.lastSecond = second;
+    const target = fmtCountdown(second);
+    scrambler.run(countdownEl, target, { duration: 90 });
+    const urgent = cfg.mode === 'countdown' && second <= 10 && second > 0;
+    if (urgent !== state.urgent) {
+      state.urgent = urgent;
+      countdownEl.classList.toggle('urgent', urgent);
+      if (urgent) { eyebrowEl.textContent = 'ALMOST THERE'; subtitleEl.style.opacity = '0.35'; }
+      else { eyebrowEl.textContent = 'STARTING SOON'; subtitleEl.style.opacity = '1'; }
+    }
+  }
+  if (cfg.mode === 'countdown' && remainingMs <= 0 && state.phase === 'standby') {
+    release();
+  }
+}
+
+/* ============================================================
+   释放（Release）：白闪 + STARTING NOW + OBS 切场景
+   ============================================================ */
+async function release() {
+  state.phase = 'released';
+  countdownEl.textContent = '00:00';
+  countdownEl.classList.remove('urgent');
+  subtitleEl.style.opacity = '0';
+
+  const flash = $('flash');
+  flash.classList.remove('go');
+  void flash.offsetWidth;
+  flash.classList.add('go');
+
+  const sn = $('startNow');
+  sn.classList.add('go');
+  $('startNowSub').textContent = cfg.obsScene
+    ? `SWITCHING TO [${cfg.obsScene.toUpperCase()}]`
+    : 'STANDBY COMPLETE';
+
+  // OBS 联动：优先 ?obsScene= 参数，否则尝试服务端默认场景（.env OBS_DEFAULT_SCENE）
+  try {
+    const res = await fetch('/api/obs/switch-scene', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scene: cfg.obsScene }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.scene) {
+      $('startNowSub').textContent = `SWITCHING TO [${String(data.scene).toUpperCase()}]`;
+    } else if (!(data.error && data.error.includes('未配置'))) {
+      // 未配置联动时静默；其余错误（OBS 离线等）提示
+      $('startNowSub').textContent = `OBS SWITCH FAILED: ${data.error || res.status}`;
+    }
+  } catch {
+    $('startNowSub').textContent = 'OBS SWITCH FAILED: OFFLINE';
+  }
+}
+
+/* ============================================================
+   右下时钟 + 左下信息
+   ============================================================ */
+function updateClock() {
+  const d = new Date();
+  $('clockTime').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  $('clockDate').textContent = `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
+}
+$('scheduleText').textContent = cfg.schedule;
+$('socialText').textContent = cfg.social;
+
+/* ============================================================
+   WS 弹幕预览面板（复用 7789 网关）
+   ============================================================ */
+const dmPanel = (() => {
+  const feed = $('dmFeed');
+  const statusEl = $('dmStatus');
+  const statusText = $('dmStatusText');
+  const MAX_ITEMS = 30;
+  let ws = null;
+  let reconnectTimer = null;
+  const items = [];
+
+  const setStatus = (cls, text) => {
+    statusEl.className = 'dm-status ' + cls;
+    statusText.textContent = text;
+  };
+
+  const push = (user, text) => {
+    const el = document.createElement('div');
+    el.className = 'dm-item';
+    const u = document.createElement('span');
+    u.className = 'u';
+    u.textContent = user;
+    el.appendChild(u);
+    el.appendChild(document.createTextNode(''));
+    feed.appendChild(el);
+    scrambler.run(el, `${user}  ${text}`, { duration: 420 });
+    items.push({ el, timer: null });
+    // 超过上限移除最旧
+    while (items.length > MAX_ITEMS) {
+      const old = items.shift();
+      clearTimeout(old.timer);
+      old.el.remove();
+    }
+    // 8 秒后淡出（旧条目）
+    const item = items[items.length - 1];
+    item.timer = setTimeout(() => {
+      el.classList.add('fade');
+      setTimeout(() => el.remove(), 1300);
+    }, 8000);
+  };
+
+  const connect = () => {
+    clearTimeout(reconnectTimer);
+    const host = (location.hostname && location.hostname !== 'null') ? location.hostname : '127.0.0.1';
+    ws = new WebSocket(`ws://${host}:7789`);
+    ws.onopen = () => {
+      setStatus('on', 'LIVE');
+      ws.send(JSON.stringify({ action: 'subscribe', roomId: cfg.room || undefined }));
+    };
+    ws.onmessage = ev => {
+      let payload;
+      try { payload = JSON.parse(ev.data); } catch { return; }
+      if (payload.type === 'danmaku') {
+        push(payload.user || '匿名用户', payload.text || '');
+      } else if (payload.type === 'status') {
+        setStatus(payload.connected ? 'on' : 'err', payload.message || 'OFFLINE');
+      }
+    };
+    ws.onclose = () => {
+      setStatus('err', 'RECONNECT');
+      reconnectTimer = setTimeout(connect, 3000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+  };
+
+  connect();
+  return { setStatus };
+})();
+
+/* ============================================================
+   BGM + 波形（?bgm= 指定本地文件；无则完全静音）
+   ============================================================ */
+const audio = (() => {
+  const canvas = $('waveform');
+  if (!cfg.bgm) { canvas.hidden = true; return null; }
+
+  const ctx2d = canvas.getContext('2d');
+  const audioEl = new Audio(cfg.bgm);
+  audioEl.loop = true;
+  audioEl.volume = 0.85;
+  let actx = null;
+  let analyser = null;
+  let data = null;
+  let started = false;
+
+  const unlock = () => {
+    if (started) return;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = actx.createMediaElementSource(audioEl);
+      analyser = actx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.82;
+      src.connect(analyser);
+      analyser.connect(actx.destination);
+      data = new Uint8Array(analyser.frequencyBinCount);
+      audioEl.play().catch(() => {});
+      started = true;
+    } catch { started = true; }
+  };
+
+  // OBS 内可直接播放；浏览器首次交互解锁
+  const tryAuto = () => audioEl.play().catch(() => {
+    canvas.hidden = false;
+    document.addEventListener('click', unlock, { once: true });
+  });
+  tryAuto();
+  if (!canvas.hidden) canvas.hidden = false;
+
+  const draw = () => {
+    ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+    if (!analyser) { requestAnimationFrame(draw); return; }
+    analyser.getByteFrequencyData(data);
+    const bars = 56;
+    const bw = canvas.width / bars;
+    for (let i = 0; i < bars; i++) {
+      const v = data[i * 2] / 255;
+      const h = Math.max(1, v * v * canvas.height);
+      const x = i * bw + bw * 0.3;
+      const y = canvas.height - h;
+      ctx2d.fillStyle = i % 7 === 0
+        ? `rgba(0, 240, 255, ${0.25 + v * 0.5})`
+        : `rgba(212, 255, 0, ${0.18 + v * 0.55})`;
+      ctx2d.fillRect(x, y, bw * 0.4, h);
+    }
+    requestAnimationFrame(draw);
+  };
+  draw();
+  return { el: audioEl };
+})();
+
+/* ============================================================
+   调试控制条
+   ============================================================ */
+if (!cfg.hidebar) {
+  const bar = $('ctrlbar');
+  bar.hidden = false;
+  $('btnReset').addEventListener('click', () => {
+    state.phase = 'standby';
+    $('startNow').classList.remove('go');
+    resetCountdown();
+  });
+  $('btnPause').addEventListener('click', () => {
+    state.paused = !state.paused;
+    $('btnPause').textContent = state.paused ? 'RESUME' : 'PAUSE';
+  });
+  $('btnMode').addEventListener('click', () => {
+    cfg.mode = cfg.mode === 'clock' ? 'countdown' : 'clock';
+    $('btnMode').textContent = cfg.mode === 'clock' ? 'COUNT' : 'CLOCK';
+    resetCountdown();
+  });
+  $('btnTest').addEventListener('click', () => release());
+}
+
+/* ============================================================
+   主时间轴：rAF 单循环驱动全部异步层
+   ============================================================ */
+const birds = spawnShoal(9);
+const drawParticles = createParticles();
+resetCountdown();
+
+function frame(now) {
+  // 时钟（每秒）
+  updateClock();
+
+  if (!state.paused) {
+    if (cfg.mode === 'clock') {
+      countdownEl.textContent = $('clockTime').textContent;
+    } else if (state.phase === 'standby') {
+      updateCountdown(now);
+    }
+    // BG 鸽子群（7/11/13s 相位）
+    updateShoal(birds, now / 1000);
+    // FG 粒子
+    drawParticles(now / 1000);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -24,6 +24,10 @@
   - 支持快速调色盘与 HTML5 颜色选择器。
   - 登录凭证仅从服务端 `.env` 读取，不进入浏览器 URL 或 `localStorage`。
 
+- **开场待机倒计时页 (standby)**
+  - 阈限空间式开场：三层 Z 轴（背景鸽子群 / 中央倒计时 / 前景弹幕+粒子），异步循环防重复。
+  - 倒计时结束白闪释放，可联动 OBS WebSocket 自动切换正片场景。
+
 - **弹幕点歌姬**
   - 支持“点歌 歌名”、取消点歌、查看歌单和主播切歌等命令。
   - 内置排队、防重复、用户配额、冷却、权限控制和播放状态恢复。
@@ -37,6 +41,7 @@
 ```text
 danmaku-frame/
 ├── index.html            # 16:9 赛博朋克弹幕边框 H5 前端页面 (底层源)
+├── standby.html          # 开场待机倒计时页（开播前情绪缓冲，可联动 OBS 切场景）
 ├── matrix-danmaku.html   # 《黑客帝国》“内部消息”代码拖尾跳过飘飞弹幕 (顶层源 / UIDemo)
 ├── server.mjs            # 轻量启动入口
 ├── src/                  # 服务端模块：B站连接、协议、点歌、HTTP/WS
@@ -129,6 +134,27 @@ WebSocket 弹幕中继服务: ws://localhost:7789
 | `fontsize` | 弹幕文字字号 (px) | `?fontsize=14` |
 | `hidebar` | 自动隐藏顶部控制栏 (`true`/`false`) | `?hidebar=true` |
 | `autoconnect` | 加载页面时自动连接直播间 (`true`/`false`) | `?autoconnect=true` |
+
+### 开场待机页参数 (standby.html)
+
+| 参数 | 说明 | 示例 |
+| :--- | :--- | :--- |
+| `duration` | 倒计时秒数 (10–3600，默认 120) | `?duration=300` |
+| `mode` | `countdown` 倒计时 / `clock` 实时时钟 | `?mode=clock` |
+| `room` | 弹幕预览面板连接的直播间 | `?room=30068664` |
+| `bgm` | 本地待机音乐（相对 danmaku-frame 根） | `?bgm=music/standby.mp3` |
+| `obsScene` | 倒计时归零时切换的 OBS 场景名 | `?obsScene=正片` |
+| `schedule` | 左下角节目安排文本 | `?schedule=20:00%20LIVE` |
+| `social` | 左下角社交 ID 文本 | `?social=%40xxx` |
+| `hidebar` | 隐藏顶部调试控制条 (`true`/`false`) | `?hidebar=true` |
+
+OBS 浏览器源示例：
+
+```text
+http://localhost:7788/standby.html?duration=120&room=30068664&bgm=music/standby.mp3&obsScene=正片
+```
+
+> OBS 联动依赖根目录 `.env` 的 `OBS_WEBSOCKET_URL` / `OBS_WEBSOCKET_PASSWORD`（OBS 需开启 WebSocket 服务，默认端口 4455）。场景名也可在 `.env` 中通过 `OBS_DEFAULT_SCENE` 统一配置，页面无需再带 `obsScene` 参数。未配置时归零仅做页面内转场，不报错。
 
 ---
 
