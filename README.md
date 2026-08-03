@@ -15,14 +15,20 @@
   - 动效流畅自然，提供独特的极客视觉体验。
 
 - **原生 B站 WebSocket 动态 Token 鉴权**
-  - 内置 Node.js 高性能 WebSocket 中继服务（端口 8787），支持动态请求 B站 API 提取鉴权 Token (`Opcode 7`)。
+  - 内置 Node.js 高性能 WebSocket 中继服务（端口 7789），支持动态请求 B站 API 提取鉴权 Token (`Opcode 7`)。
   - 原生支持 **Brotli** (`protover: 3`) 与 **Zlib** (`protover: 2`) 双重二进制数据流解压与拆包。
   - 精确解析普通弹幕 (`DANMU_MSG`)、高额送礼 (`SEND_GIFT`)、醒目留言 (`SUPER_CHAT_MESSAGE`) 及大航海勋章（舰长/提督/总督）。
 
 - **丰富可调参数与本地持久化**
   - 实时自定义面板宽度 (W)、弹幕字体大小 (F) 与等宽/黑体/中文字体系列。
   - 支持快速调色盘与 HTML5 颜色选择器。
-  - 支持 SESSDATA 凭证登录，规避 B站 游客弹幕打码限制。
+  - 登录凭证仅从服务端 `.env` 读取，不进入浏览器 URL 或 `localStorage`。
+
+- **弹幕点歌姬**
+  - 支持“点歌 歌名”、取消点歌、查看歌单和主播切歌等命令。
+  - 内置排队、防重复、用户配额、冷却、权限控制和播放状态恢复。
+  - 首版支持 `music/` 目录中的本地合法音频；网络直链默认关闭。
+  - 提供独立的 OBS 正在播放浏览器源。
 
 ---
 
@@ -32,7 +38,12 @@
 danmaku-frame/
 ├── index.html            # 16:9 赛博朋克弹幕边框 H5 前端页面 (底层源)
 ├── matrix-danmaku.html   # 《黑客帝国》“内部消息”代码拖尾跳过飘飞弹幕 (顶层源 / UIDemo)
-├── server.mjs            # Node.js HTTP 静态服务 (8080) + B站 WebSocket 弹幕中继服务 (8787)
+├── server.mjs            # 轻量启动入口
+├── src/                  # 服务端模块：B站连接、协议、点歌、HTTP/WS
+├── public/song-player/   # OBS 点歌播放器与管理页面
+├── music/                # 用户提供的合法本地音频（默认不纳入 Git）
+├── data/                 # 点歌运行状态（默认不纳入 Git）
+├── tests/                # Node.js 单元测试
 ├── 看门狗.html            # 运行状态监控与通信检测辅助页面
 ├── package.json          # 项目依赖与启动脚本
 └── README.md             # 项目使用指南
@@ -58,12 +69,39 @@ npm start
 
 ```text
 ====================================================
-Danmaku-Frame H5 直播边框 HTTP 服务: http://localhost:8080
-WebSocket 弹幕中继服务: ws://localhost:8787
+Danmaku-Frame H5 直播边框 HTTP 服务: http://localhost:7788
+WebSocket 弹幕中继服务: ws://localhost:7789
 ----------------------------------------------------
-页面地址: http://localhost:8080/index.html
+页面地址: http://localhost:7788/index.html
+点歌播放器: http://localhost:7788/public/song-player/
 ====================================================
 ```
+
+### 点歌姬快速开始
+
+1. 将有权播放的 `.mp3`、`.wav`、`.ogg`、`.m4a` 或 `.flac` 文件放入 `danmaku-frame/music/`。
+2. 在根目录 `.env` 中填写主播 UID：
+
+   ```env
+   BILIBILI_OWNER_UID=你的UID
+   BILIBILI_ADMIN_UIDS=房管UID1,房管UID2
+   SONG_REQUEST_ENABLED=true
+   SONG_BLOCKED_UIDS=
+   SONG_ALLOWED_UIDS=
+   SONG_BLOCKED_KEYWORDS=
+   ```
+
+3. 在 OBS 中添加浏览器源：
+
+   ```text
+   http://127.0.0.1:7788/public/song-player/
+   ```
+
+4. 观众发送 `点歌 文件名关键词`。主播或配置的管理员可以发送 `下一首`、`暂停点歌`、`继续播放`、`清空歌单`、`开启点歌`、`关闭点歌`。
+
+管理页地址为 `http://127.0.0.1:7788/public/song-player/admin.html`。服务开放到局域网时，必须设置 `WS_AUTH_TOKEN`，并通过管理页 URL 的 `?token=...` 参数提供。
+
+> 本项目不提供会员歌曲解锁、版权限制绕过或第三方音乐平台私有接口。请只使用已获得播放授权的音频。
 
 ---
 
@@ -72,7 +110,7 @@ WebSocket 弹幕中继服务: ws://localhost:8787
 1. 打开 **OBS Studio**，在“来源”列表中点击 `+`，选择 **浏览器 (Browser Source)**。
 2. 在 **URL** 输入框中填写：
    ```text
-   http://localhost:8080/index.html?room=30068664&hidebar=true
+   http://localhost:7788/index.html?room=30068664&hidebar=true
    ```
 3. 建议将宽度设置为 `1920`，高度设置为 `1080`（或匹配您的直播画布分辨率，如 `1280x720`）。
 4. 勾选 **通过 OBS 刷新浏览器**，点击“确定”保存。

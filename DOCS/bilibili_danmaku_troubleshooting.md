@@ -48,7 +48,7 @@ const r2 = await fetch(`https://api.live.bilibili.com/xlive/web-room/v1/index/ge
 在 `BILI_COOKIE` 中显式填入由用户从已登录浏览器控制台复制的 `SESSDATA`：
 
 ```javascript
-const BILI_COOKIE = 'SESSDATA=...; buvid3=...; bili_jct=...; DedeUserID=316052822; DedeUserID__ckMd5=...';
+const BILI_COOKIE = 'SESSDATA=...; buvid3=...; bili_jct=...; DedeUserID=<uid>; DedeUserID__ckMd5=...';
 const BILI_UID = 316052822;
 ```
 
@@ -89,8 +89,8 @@ const authPayload = JSON.stringify({
 ## 📋 5. 验证结果
 
 1. **常驻服务验证**：
-   - HTTP 端口: `8080`
-   - WebSocket 中继端口: `8787`
+   - HTTP 端口: `7788`
+   - WebSocket 中继端口: `7789`
    - 日志显示 `[RelayWS] B站 直播间 [30068664] 鉴权成功！状态: LIVE`
 2. **打码消除验证**：
    - 弹幕发言者完整显示真实 B站 账号昵称（如 `小小小名不是小明`），持续长效无星号打码。

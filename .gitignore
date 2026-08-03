@@ -10,3 +10,9 @@ node_modules/
 .DS_Store
 .vscode/
 .idea/
+
+# Runtime state and user-provided media
+data/*
+!data/.gitkeep
+music/*
+!music/.gitkeep

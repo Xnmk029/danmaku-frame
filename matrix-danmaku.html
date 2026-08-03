@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DEDSEC MATRIX DANMAKU — “内部消息”/“外部消息”双向代码拖尾跳过飘飞弹幕 (16:9 1080P Overlay)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@600;700&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #d4ff00;
+      --accent-dim: rgba(212, 255, 0, 0.15);
+      --accent-glow: rgba(212, 255, 0, 0.45);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.15);
+      --cyan-glow: rgba(0, 240, 255, 0.4);
+      --pink: #ff0055;
+      --pink-dim: rgba(255, 0, 85, 0.18);
+      --matrix-green: #00ff66;
+      --matrix-glow: rgba(0, 255, 102, 0.5);
+      --bg-dark: #0a0b0e;
+      --bg-panel: rgba(10, 11, 14, 0.92);
+      --text-primary: #ffffff;
+      --text-secondary: #9098a8;
+      --border: rgba(255, 255, 255, 0.12);
+      --font-mono: 'Share Tech Mono', 'JetBrains Mono', 'Consolas', monospace;
+      --font-orbitron: 'Orbitron', 'Share Tech Mono', monospace;
+      --font-rajdhani: 'Rajdhani', sans-serif;
+
+      /* 弹幕缩放尺寸变量 (默认 150% 放大) */
+      --dm-scale: 1.5;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent !important; /* 彻底移除全局背景，100% 透明 */
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      user-select: none;
+    }
+
+    /* === 1. 16:9 VIEWPORT CONTAINER (严格匹配 index.html 16:9 1080P 画布) === */
+    .frame-viewport {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .frame-outer {
+      position: relative;
+      width: calc(100vh * 16 / 9);
+      max-width: 100vw;
+      height: calc(100vw * 9 / 16);
+      max-height: 100vh;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    /* === OVERLAY CANVAS FOR BULLET TRAIL PARTICLES === */
+    #trailCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* === FLYING ITEMS VIEWPORT CONTAINER === */
+    #overlayContainer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Clip Path Utilities (Matching index.html) */
+    .clip-cyber-corner {
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    }
+
+    .clip-cyber-card {
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+    }
+
+    /* ============================================================
+       2. TOP DEDSEC CONTROL HUD BAR (UIDEMO CONTROLLER)
+       ============================================================ */
+    #demoCtrlBar {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: var(--bg-panel);
+      border: 1px solid var(--accent);
+      box-shadow: 0 0 20px var(--accent-dim), inset 0 0 15px rgba(0, 240, 255, 0.05);
+      padding: 10px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #demoCtrlBar.hidden {
+      transform: translate(-50%, -130%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .dedsec-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 11, 14, 0.95);
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      font-family: var(--font-orbitron);
+      font-weight: 800;
+      font-size: 12px;
+      color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-dim);
+    }
+
+    .dedsec-brand .skull-icon {
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
+    }
+
+    .badge-demo {
+      background: var(--cyan);
+      color: #000;
+      font-size: 10px;
+      padding: 1px 5px;
+      font-weight: bold;
+      border-radius: 2px;
+      font-family: var(--font-rajdhani);
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-cyber {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      outline: none;
+    }
+
+    .btn-cyber:hover {
+      background: var(--cyan);
+      color: #000;
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .btn-cyber.btn-accent {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(212, 255, 0, 0.1);
+    }
+
+    .btn-cyber.btn-accent:hover {
+      background: var(--accent);
+      color: #000;
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .btn-cyber.btn-cyan {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .btn-cyber.btn-cyan:hover {
+      background: var(--cyan);
+      color: #000;
+      box-shadow: 0 0 14px var(--cyan-glow);
+    }
+
+    .btn-cyber.btn-pink {
+      border-color: var(--pink);
+      color: var(--pink);
+      background: rgba(255, 0, 85, 0.1);
+    }
+
+    .btn-cyber.btn-pink:hover {
+      background: var(--pink);
+      color: #fff;
+      box-shadow: 0 0 14px var(--pink-dim);
+    }
+
+    .input-cyber {
+      background: rgba(5, 7, 10, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 10px;
+      outline: none;
+      width: 220px;
+      transition: border-color 0.2s;
+    }
+
+    .input-cyber:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan-dim);
+    }
+
+    .select-cyber {
+      background: rgba(5, 7, 10, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 8px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Cyberpunk Range Slider for Volume Control */
+    .range-cyber {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 75px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .range-cyber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .range-cyber::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    .status-pill {
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--pink);
+      box-shadow: 0 0 6px var(--pink);
+    }
+
+    .status-dot.online {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    /* === 精简隐藏/显示控制台按钮 (低调缩小不遮挡) === */
+    #toggleBarBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10000;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: bold;
+      opacity: 0.35;
+      background: rgba(10, 11, 14, 0.75);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 3px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    #toggleBarBtn:hover {
+      opacity: 0.95;
+      background: var(--accent);
+      color: #000;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* ============================================================
+       3. FLYING MATRIX DANMAKU ITEM (INTERNAL & EXTERNAL STYLES)
+       ============================================================ */
+    .matrix-flying-item {
+      position: absolute;
+      white-space: nowrap;
+      pointer-events: none;
+      will-change: transform;
+      display: flex;
+      align-items: center;
+      z-index: 10;
+    }
+
+    /* Main Bullet Card (Matching index.html Watch Dogs card style with --dm-scale) */
+    .matrix-bullet-card {
+      display: flex;
+      align-items: center;
+      gap: calc(8px * var(--dm-scale));
+      padding: calc(8px * var(--dm-scale)) calc(14px * var(--dm-scale));
+      background: rgba(10, 12, 16, 0.94);
+      border-left: calc(3.5px * var(--dm-scale)) solid var(--accent);
+      border-top: 1px solid rgba(212, 255, 0, 0.4);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 15px var(--accent-dim);
+      color: #e2e8f0;
+      font-size: calc(16px * var(--dm-scale));
+      position: relative;
+    }
+
+    /* External Message Variant (Reverse flight Cyan style) */
+    .matrix-bullet-card.external {
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      border-right: calc(3.5px * var(--dm-scale)) solid var(--cyan);
+      border-top: 1px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 15px var(--cyan-dim);
+    }
+
+    .dm-medal-classified {
+      font-size: calc(11px * var(--dm-scale));
+      font-family: var(--font-orbitron);
+      font-weight: 800;
+      padding: calc(2px * var(--dm-scale)) calc(6px * var(--dm-scale));
+      background: rgba(212, 255, 0, 0.18);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      letter-spacing: 1px;
+      box-shadow: 0 0 8px var(--accent-dim);
+    }
+
+    .dm-medal-external {
+      font-size: calc(11px * var(--dm-scale));
+      font-family: var(--font-orbitron);
+      font-weight: 800;
+      padding: calc(2px * var(--dm-scale)) calc(6px * var(--dm-scale));
+      background: rgba(0, 240, 255, 0.18);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      letter-spacing: 1px;
+      box-shadow: 0 0 8px var(--cyan-dim);
+    }
+
+    .dm-user {
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 6px var(--cyan-dim);
+    }
+
+    .dm-user.external-user {
+      color: var(--pink);
+      text-shadow: 0 0 6px var(--pink-dim);
+    }
+
+    .dm-text {
+      color: #ffffff;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .dm-num { color: var(--cyan); font-weight: bold; }
+    .dm-sym { color: var(--pink); font-weight: bold; }
+    .sc { color: var(--accent); opacity: 0.9; font-weight: bold; }
+
+    /* Attached Matrix Code Stream Trail (正向代码拖尾 - 紧随在右端) */
+    .matrix-code-tail {
+      display: flex;
+      align-items: center;
+      gap: calc(4px * var(--dm-scale));
+      padding: calc(4px * var(--dm-scale)) calc(10px * var(--dm-scale));
+      font-family: var(--font-mono);
+      font-size: calc(13px * var(--dm-scale));
+      color: var(--matrix-green);
+      background: linear-gradient(90deg, rgba(0, 255, 102, 0.18) 0%, rgba(0, 255, 102, 0.05) 70%, transparent 100%);
+      border-left: 2px solid var(--matrix-green);
+      text-shadow: 0 0 8px var(--matrix-green);
+      letter-spacing: 2px;
+      opacity: 0.9;
+    }
+
+    /* Attached Matrix Code Stream Trail (反向代码拖尾 - 延伸在左侧) */
+    .matrix-code-tail.reverse {
+      background: linear-gradient(270deg, rgba(0, 240, 255, 0.2) 0%, rgba(0, 240, 255, 0.05) 70%, transparent 100%);
+      border-left: none;
+      border-right: 2px solid var(--cyan);
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+    }
+
+    .matrix-tail-char {
+      display: inline-block;
+      transition: color 0.1s;
+    }
+
+    .matrix-tail-char.bright {
+      color: #ffffff;
+      text-shadow: 0 0 10px #00ff66, 0 0 15px #00ff66;
+    }
+
+    .matrix-tail-char.cyan-bright {
+      color: #ffffff;
+      text-shadow: 0 0 10px #00f0ff, 0 0 15px #00f0ff;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 16:9 Viewport Container (Matching index.html) -->
+  <div class="frame-viewport">
+    <div id="frameOuter" class="frame-outer">
+      <!-- Overlay Canvas for Particle Code Trail attached to Danmaku -->
+      <canvas id="trailCanvas"></canvas>
+
+      <!-- Main Viewport Layer for Flying Items -->
+      <div id="overlayContainer"></div>
+    </div>
+  </div>
+
+  <!-- Compact Toggle Panel Button -->
+  <button id="toggleBarBtn" class="btn-cyber" title="快捷键: H 隐藏/显示控制栏">⚙️ H</button>
+
+  <!-- Top Floating DedSec Control Bar -->
+  <div id="demoCtrlBar" class="clip-cyber-corner">
+    <div class="dedsec-brand">
+      <div class="skull-icon"></div>
+      DEDSEC // MATRIX
+      <span class="badge-demo">UIDemo</span>
+    </div>
+
+    <div class="ctrl-group">
+      <button id="btnSimulateInternal" class="btn-cyber btn-accent">
+        🚀 模拟“内部消息”正向 (右→左)
+      </button>
+      <button id="btnSimulateExternal" class="btn-cyber btn-cyan">
+        📡 模拟“外部消息”反向 (左→右)
+      </button>
+      <button id="btnNormal" class="btn-cyber btn-pink">
+        💬 普通弹幕 (测试过滤)
+      </button>
+    </div>
+
+    <div class="ctrl-group">
+      <input type="text" id="customInput" class="input-cyber" value="内部消息：ctOS 2.0 绝密节点已接入系统！" placeholder="输入含“内部消息”或“外部消息”的内容...">
+      <button id="btnSendCustom" class="btn-cyber">
+        ✍️ 发射
+      </button>
+    </div>
+
+    <div class="ctrl-group">
+      <label style="font-size:11px; color:#aaa;">速度:</label>
+      <select id="speedSelect" class="select-cyber">
+        <option value="5000">极速 (5s)</option>
+        <option value="7000" selected>标准 (7s)</option>
+        <option value="11000">漫游 (11s)</option>
+      </select>
+
+      <label style="font-size:11px; color:#aaa;">大小:</label>
+      <select id="scaleSelect" class="select-cyber">
+        <option value="1.0">100%</option>
+        <option value="1.25">125%</option>
+        <option value="1.5" selected>150% (默认)</option>
+        <option value="1.75">175%</option>
+        <option value="2.0">200%</option>
+      </select>
+
+      <label style="font-size:11px; color:#aaa;">轨道:</label>
+      <select id="laneSelect" class="select-cyber">
+        <option value="4">4 轨</option>
+        <option value="7" selected>7 轨</option>
+        <option value="10">10 轨</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
+      <button id="btnAudioMute" class="btn-cyber" title="点击静音/取消静音">
+        🔊
+      </button>
+      <input type="range" id="volumeRange" class="range-cyber" min="0" max="100" value="30" title="音量调节">
+      <span id="volumeVal" style="font-size:11px; color:var(--cyan); font-weight:bold; min-width:32px;">30%</span>
+    </div>
+
+    <div id="wsPill" class="status-pill">
+      <div id="wsDot" class="status-dot"></div>
+      <span id="wsStatus">WS 离线</span>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       1. SYNTAX HIGHLIGHTER & SCRAMBLE TEXT ENGINE (Matching index.html)
+       ============================================================ */
+    const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!<>-_\\/[]{}—=+*^?#アイウエオカキクケコサシスセソタチツテト';
+
+    function formatSyntax(text) {
+      if (!text) return '';
+      const esc = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      return esc.replace(/([0-9]+|[\{\}\[\]\(\)]|[!@#\$%\^&\*\+\=\-\/\\\|:<>\?`~,\._"']+)/g, (match) => {
+        if (/^[0-9]+$/.test(match)) {
+          return `<span class="dm-num">${match}</span>`;
+        } else {
+          return `<span class="dm-sym">${match}</span>`;
+        }
+      });
+    }
+
+    class ScrambleText {
+      constructor() {
+        this.chars = SCRAMBLE_CHARS;
+      }
+
+      decode(el, text, opts = {}) {
+        const duration = opts.duration || 420;
+        const interval = 30;
+        const maxIter = Math.ceil(duration / interval);
+        let iteration = 0;
+
+        clearInterval(el._scrambleTimer);
+
+        return new Promise(resolve => {
+          el._scrambleTimer = setInterval(() => {
+            const progress = iteration / maxIter;
+            const revealCount = Math.floor(progress * text.length);
+
+            let out = '';
+            for (let i = 0; i < text.length; i++) {
+              if (text[i] === ' ') { out += ' '; continue; }
+              if (i < revealCount) {
+                out += text[i];
+              } else {
+                out += '<span class="sc">' + this.chars[Math.floor(Math.random() * this.chars.length)] + '</span>';
+              }
+            }
+            el.innerHTML = out;
+
+            iteration++;
+            if (iteration > maxIter) {
+              clearInterval(el._scrambleTimer);
+              el.innerHTML = formatSyntax(text);
+              resolve();
+            }
+          }, interval);
+        });
+      }
+    }
+
+    function getScrambler() { return new ScrambleText(); }
+
+    /* ============================================================
+       2. AUDIO PLAYER & VOLUME SYSTEM (调用 内部消息提示.wav，默认 30% 音量)
+       ============================================================ */
+    let audioVolume = 0.3;
+    let lastVolume = 0.3;
+    const audioNotice = new Audio('内部消息提示.wav');
+
+    // Synth fallback if WAV file is blocked or unavailable
+    let audioCtx = null;
+    function initSynthAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playSynthGlitchSound() {
+      if (audioVolume <= 0) return;
+      try {
+        initSynthAudio();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(960, now);
+        osc.frequency.exponentialRampToValueAtTime(1480, now + 0.06);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.16);
+
+        gain.gain.setValueAtTime(0.12 * audioVolume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } catch (e) {}
+    }
+
+    function playNoticeSound() {
+      if (audioVolume <= 0) return;
+      try {
+        audioNotice.currentTime = 0;
+        audioNotice.volume = audioVolume;
+        audioNotice.play().catch(e => {
+          playSynthGlitchSound();
+        });
+      } catch (e) {
+        playSynthGlitchSound();
+      }
+    }
+
+    /* ============================================================
+       3. CANVAS BULLET CODE TRAIL PARTICLE ENGINE (正向/反向 16:9 代码拖尾)
+       ============================================================ */
+    const frameOuter = document.getElementById('frameOuter');
+    const overlayContainer = document.getElementById('overlayContainer');
+    const trailCanvas = document.getElementById('trailCanvas');
+    const trailCtx = trailCanvas.getContext('2d');
+
+    function resizeTrailCanvas() {
+      trailCanvas.width = frameOuter.clientWidth || window.innerWidth;
+      trailCanvas.height = frameOuter.clientHeight || window.innerHeight;
+    }
+    window.addEventListener('resize', resizeTrailCanvas);
+    resizeTrailCanvas();
+
+    const activeFlyingItems = [];
+    const trailParticles = [];
+
+    function addTrailParticle(x, y, isReverse = false) {
+      const char = SCRAMBLE_CHARS.charAt(Math.floor(Math.random() * SCRAMBLE_CHARS.length));
+      const color = isReverse ? '#00f0ff' : '#00ff66';
+      const vxDir = isReverse ? -(Math.random() * 2.5 + 1.5) : (Math.random() * 2.5 + 1.5);
+      const currentScale = parseFloat(document.documentElement.style.getPropertyValue('--dm-scale')) || 1.5;
+
+      trailParticles.push({
+        x: x + (Math.random() * 10 - 5),
+        y: y + (Math.random() * 18 - 9),
+        vx: vxDir,
+        vy: (Math.random() * 0.4 - 0.2),
+        char: char,
+        color: color,
+        alpha: 0.95,
+        size: Math.floor((Math.random() * 4 + 13) * currentScale),
+        decay: Math.random() * 0.035 + 0.02
+      });
+    }
+
+    function renderTrailLoop() {
+      trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+
+      const parentRect = frameOuter.getBoundingClientRect();
+
+      activeFlyingItems.forEach(item => {
+        const rect = item.el.getBoundingClientRect();
+        const relRight = rect.right - parentRect.left;
+        const relLeft = rect.left - parentRect.left;
+        const relTop = rect.top - parentRect.top;
+
+        if (relRight > 0 && relLeft < trailCanvas.width) {
+          if (item.isReverse) {
+            // Reverse flight (Left to Right): Emit trailing particles backwards to the Left
+            addTrailParticle(relLeft + 10, relTop + rect.height / 2, true);
+            if (Math.random() > 0.4) {
+              addTrailParticle(relLeft + 30, relTop + Math.random() * rect.height, true);
+            }
+          } else {
+            // Normal flight (Right to Left): Emit trailing particles backwards to the Right
+            addTrailParticle(relRight - 10, relTop + rect.height / 2, false);
+            if (Math.random() > 0.4) {
+              addTrailParticle(relRight - 30, relTop + Math.random() * rect.height, false);
+            }
+          }
+        }
+      });
+
+      for (let i = trailParticles.length - 1; i >= 0; i--) {
+        const p = trailParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          trailParticles.splice(i, 1);
+          continue;
+        }
+
+        trailCtx.save();
+        trailCtx.font = `${p.size}px "Share Tech Mono", monospace`;
+        trailCtx.fillStyle = p.color === '#00f0ff' ? `rgba(0, 240, 255, ${p.alpha})` : `rgba(0, 255, 102, ${p.alpha})`;
+        trailCtx.shadowColor = p.color;
+        trailCtx.shadowBlur = 8;
+        trailCtx.fillText(p.char, p.x, p.y);
+        trailCtx.restore();
+      }
+
+      requestAnimationFrame(renderTrailLoop);
+    }
+    requestAnimationFrame(renderTrailLoop);
+
+    /* Track Lane Allocation */
+    let laneCount = 7;
+    const laneNextAvailable = [];
+
+    function updateLanes() {
+      laneNextAvailable.length = 0;
+      for (let i = 0; i < laneCount; i++) {
+        laneNextAvailable.push(0);
+      }
+    }
+    updateLanes();
+
+    function getRandomGlitchString(len) {
+      let res = '';
+      for (let i = 0; i < len; i++) {
+        res += SCRAMBLE_CHARS.charAt(Math.floor(Math.random() * SCRAMBLE_CHARS.length));
+      }
+      return res;
+    }
+
+    function spawnMatrixFlyingDanmaku(data, msgType = 'internal') {
+      playNoticeSound();
+
+      const user = data.user || (msgType === 'external' ? '外部黑客' : '内部黑客');
+      const rawText = data.text || (msgType === 'external' ? '外部消息' : '内部消息');
+      const speedMs = parseInt(document.getElementById('speedSelect').value, 10) || 7000;
+      const isReverse = msgType === 'external';
+
+      const now = Date.now();
+      let selectedLane = 0;
+      let minTime = Infinity;
+
+      for (let i = 0; i < laneCount; i++) {
+        if (laneNextAvailable[i] < now) {
+          selectedLane = i;
+          minTime = laneNextAvailable[i];
+          break;
+        }
+        if (laneNextAvailable[i] < minTime) {
+          minTime = laneNextAvailable[i];
+          selectedLane = i;
+        }
+      }
+
+      laneNextAvailable[selectedLane] = now + (speedMs * 0.35);
+      const topPercent = 8 + (selectedLane * (74 / laneCount));
+
+      // Create Flying Container DOM
+      const itemEl = document.createElement('div');
+      itemEl.className = 'matrix-flying-item' + (isReverse ? ' reverse' : '');
+      itemEl.style.top = topPercent + '%';
+
+      if (isReverse) {
+        // 反向飘飞 (左 -> 右): 代码拖尾延伸在左边，卡片在右边
+        itemEl.innerHTML = `
+          <div class="matrix-code-tail reverse">
+            <span class="matrix-tail-char cyan-bright">[EXT_STREAM://]</span>
+            <span class="matrix-tail-char">${getRandomGlitchString(5)}</span>
+            <span class="matrix-tail-char cyan-bright">${getRandomGlitchString(3)}</span>
+          </div>
+          <div class="matrix-bullet-card external clip-cyber-card">
+            <span class="dm-medal-external">外部消息</span>
+            <span class="dm-user external-user">${escapeHtml(user)}:</span>
+            <span class="dm-text"></span>
+          </div>
+        `;
+      } else {
+        // 正向飘飞 (右 -> 左): 卡片在左边，代码拖尾紧随在右边
+        itemEl.innerHTML = `
+          <div class="matrix-bullet-card clip-cyber-card">
+            <span class="dm-medal-classified">内部消息</span>
+            <span class="dm-user">${escapeHtml(user)}:</span>
+            <span class="dm-text"></span>
+          </div>
+          <div class="matrix-code-tail">
+            <span class="matrix-tail-char bright">${getRandomGlitchString(3)}</span>
+            <span class="matrix-tail-char">${getRandomGlitchString(5)}</span>
+            <span class="matrix-tail-char">[MSG_STREAM://]</span>
+          </div>
+        `;
+      }
+
+      overlayContainer.appendChild(itemEl);
+
+      const flyingObj = { el: itemEl, isReverse: isReverse };
+      activeFlyingItems.push(flyingObj);
+
+      // Trigger Scramble Text decoding on the bullet content
+      const textEl = itemEl.querySelector('.dm-text');
+      const scrambler = getScrambler();
+      scrambler.decode(textEl, rawText, { duration: 550 });
+
+      // Tail character glitch timer
+      const tailEl = itemEl.querySelector('.matrix-code-tail');
+      const scrambleTimer = setInterval(() => {
+        if (!itemEl.parentNode) {
+          clearInterval(scrambleTimer);
+          return;
+        }
+        if (tailEl) {
+          if (isReverse) {
+            tailEl.innerHTML = `
+              <span class="matrix-tail-char cyan-bright">[0x${Math.floor(Math.random() * 255).toString(16).toUpperCase()}]</span>
+              <span class="matrix-tail-char">${getRandomGlitchString(5)}</span>
+              <span class="matrix-tail-char cyan-bright">${getRandomGlitchString(3)}</span>
+            `;
+          } else {
+            tailEl.innerHTML = `
+              <span class="matrix-tail-char bright">${getRandomGlitchString(3)}</span>
+              <span class="matrix-tail-char">${getRandomGlitchString(5)}</span>
+              <span class="matrix-tail-char">[0x${Math.floor(Math.random() * 255).toString(16).toUpperCase()}]</span>
+            `;
+          }
+        }
+      }, 100);
+
+      // Smooth flying animation inside 16:9 frameOuter
+      const canvasWidth = frameOuter.clientWidth || window.innerWidth;
+      let startX, endX;
+
+      if (isReverse) {
+        // 从左往右滑过
+        startX = -itemEl.offsetWidth - 120;
+        endX = canvasWidth + 250;
+      } else {
+        // 从右往左滑过
+        startX = canvasWidth + 60;
+        endX = -itemEl.offsetWidth - 250;
+      }
+
+      const animation = itemEl.animate([
+        { transform: `translateX(${startX}px)` },
+        { transform: `translateX(${endX}px)` }
+      ], {
+        duration: speedMs,
+        easing: 'linear'
+      });
+
+      animation.onfinish = () => {
+        clearInterval(scrambleTimer);
+        const idx = activeFlyingItems.indexOf(flyingObj);
+        if (idx !== -1) activeFlyingItems.splice(idx, 1);
+        if (itemEl.parentNode) {
+          itemEl.parentNode.removeChild(itemEl);
+        }
+      };
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ============================================================
+       4. WEBSOCKET BROADCAST RELAY CLIENT LINK
+       ============================================================ */
+    const wsDot = document.getElementById('wsDot');
+    const wsStatus = document.getElementById('wsStatus');
+
+    class MatrixDanmakuRelay {
+      constructor() {
+        this.ws = null;
+        this.reconnectTimer = null;
+      }
+
+      connect() {
+        const host = (location.hostname && location.hostname !== 'null' && location.hostname !== '') ? location.hostname : '127.0.0.1';
+        const wsUrl = `ws://${host}:7789`;
+
+        try {
+          this.ws = new WebSocket(wsUrl);
+
+          this.ws.onopen = () => {
+            wsDot.classList.add('online');
+            wsStatus.textContent = 'WS 正在监听弹幕';
+            this.ws.send(JSON.stringify({ action: 'subscribe', roomId: '30068664' }));
+          };
+
+          this.ws.onmessage = (ev) => {
+            try {
+              const data = JSON.parse(ev.data);
+
+              if (data.type === 'status') {
+                wsStatus.textContent = data.message || 'WS 在线';
+              }
+              // Keyword Filter: "内部消息" vs "外部消息"
+              else if (data.text) {
+                if (data.text.includes('内部消息')) {
+                  spawnMatrixFlyingDanmaku(data, 'internal');
+                } else if (data.text.includes('外部消息')) {
+                  spawnMatrixFlyingDanmaku(data, 'external');
+                }
+              }
+            } catch (e) {}
+          };
+
+          this.ws.onerror = () => {
+            wsDot.classList.remove('online');
+            wsStatus.textContent = 'WS 连接错误';
+          };
+
+          this.ws.onclose = () => {
+            wsDot.classList.remove('online');
+            wsStatus.textContent = 'WS 离线 (重连中...)';
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = setTimeout(() => this.connect(), 3000);
+          };
+        } catch (e) {
+          wsDot.classList.remove('online');
+          wsStatus.textContent = 'WS 异常';
+        }
+      }
+    }
+
+    const relayClient = new MatrixDanmakuRelay();
+    relayClient.connect();
+
+    /* ============================================================
+       5. CONTROLLER EVENT LISTENERS & AUDIO VOLUME LISTENERS
+       ============================================================ */
+    const demoCtrlBar = document.getElementById('demoCtrlBar');
+    const toggleBarBtn = document.getElementById('toggleBarBtn');
+    const btnSimulateInternal = document.getElementById('btnSimulateInternal');
+    const btnSimulateExternal = document.getElementById('btnSimulateExternal');
+    const btnNormal = document.getElementById('btnNormal');
+    const btnSendCustom = document.getElementById('btnSendCustom');
+    const customInput = document.getElementById('customInput');
+    const speedSelect = document.getElementById('speedSelect');
+    const scaleSelect = document.getElementById('scaleSelect');
+    const laneSelect = document.getElementById('laneSelect');
+    const volumeRange = document.getElementById('volumeRange');
+    const volumeVal = document.getElementById('volumeVal');
+    const btnAudioMute = document.getElementById('btnAudioMute');
+
+    // Danmaku Size / Scale Control
+    scaleSelect.addEventListener('change', (e) => {
+      document.documentElement.style.setProperty('--dm-scale', e.target.value);
+    });
+
+    // Volume Slider Control
+    volumeRange.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      audioVolume = val / 100;
+      volumeVal.textContent = val + '%';
+      btnAudioMute.textContent = val === 0 ? '🔇' : '🔊';
+      if (val > 0) lastVolume = audioVolume;
+    });
+
+    // Mute / Unmute Toggle Button
+    btnAudioMute.addEventListener('click', () => {
+      if (audioVolume > 0) {
+        lastVolume = audioVolume;
+        audioVolume = 0;
+        volumeRange.value = 0;
+        volumeVal.textContent = '0%';
+        btnAudioMute.textContent = '🔇';
+      } else {
+        audioVolume = lastVolume || 0.3;
+        const valPercent = Math.round(audioVolume * 100);
+        volumeRange.value = valPercent;
+        volumeVal.textContent = valPercent + '%';
+        btnAudioMute.textContent = '🔊';
+      }
+    });
+
+    const mockInternalMessages = [
+      '内部消息：今晚8点直播间开启重磅抽奖福利！',
+      '机密指令 // 内部消息：核心代码已合并至 master 分支',
+      '内部消息：系统防御墙已突破，请求极速支援！',
+      '内部消息：下阶段 Godot 游戏引擎演示准备就绪！',
+      '内部消息：ctOS 2.0 数据节点已成功解密 100%'
+    ];
+
+    const mockExternalMessages = [
+      '外部消息：检测到外部网络流量异常反弹！',
+      '外部通信 // 外部消息：数据抓取包已接收 (ping: 18ms)',
+      '外部消息：防火墙外部节点尝试建立数据握手通道',
+      '外部消息：外网警报已触发，监控终端上线！'
+    ];
+
+    const mockUsers = [
+      'Xnmk_Marcus_SF',
+      'CyberPioneer_2077',
+      'Neo_Matrix_Operator',
+      'WatchDog_DedSec',
+      'Xnmk_Administrator_Alpha'
+    ];
+
+    btnSimulateInternal.addEventListener('click', () => {
+      const u = mockUsers[Math.floor(Math.random() * mockUsers.length)];
+      const t = mockInternalMessages[Math.floor(Math.random() * mockInternalMessages.length)];
+      spawnMatrixFlyingDanmaku({ user: u, text: t }, 'internal');
+    });
+
+    btnSimulateExternal.addEventListener('click', () => {
+      const u = mockUsers[Math.floor(Math.random() * mockUsers.length)];
+      const t = mockExternalMessages[Math.floor(Math.random() * mockExternalMessages.length)];
+      spawnMatrixFlyingDanmaku({ user: u, text: t }, 'external');
+    });
+
+    btnNormal.addEventListener('click', () => {
+      alert('💬 已模拟发送普通弹幕：“666 这 Watch Dogs 看门狗风格特效太顶了！”\n过滤校验：因未包含“内部消息”或“外部消息”关键词，系统已忽略，不会触发代码拖尾飘飞特效。');
+    });
+
+    btnSendCustom.addEventListener('click', () => {
+      const val = customInput.value.trim();
+      if (!val) return;
+      const isExt = val.includes('外部消息');
+      spawnMatrixFlyingDanmaku({ user: 'DedSec_Tester', text: val }, isExt ? 'external' : 'internal');
+    });
+
+    customInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        btnSendCustom.click();
+      }
+    });
+
+    laneSelect.addEventListener('change', (e) => {
+      laneCount = parseInt(e.target.value, 10);
+      updateLanes();
+    });
+
+    function toggleCtrlBar() {
+      demoCtrlBar.classList.toggle('hidden');
+    }
+
+    toggleBarBtn.addEventListener('click', toggleCtrlBar);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'h' || e.key === 'H') {
+        if (document.activeElement.tagName !== 'INPUT') {
+          toggleCtrlBar();
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -4,6 +4,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (() => {
+      const requested = new URLSearchParams(location.search).get('theme');
+      const saved = localStorage.getItem('xnmk-ui-theme');
+      const system = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme =
+        requested === 'light' || requested === 'dark' ? requested :
+        saved === 'light' || saved === 'dark' ? saved : system;
+    })();
+  </script>
   <title>XNMK LIVE FRAME — Watch Dogs Branch UI (gemini3.6)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,7 +40,7 @@
       --frame-thickness: 3px;
       --danmaku-width: 260px;
       --dm-font-size: 16px;
-      --dm-font-family: var(--font-mono);
+      --dm-font-family: Inter, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
     }
 
     * {
@@ -724,6 +734,321 @@
       align-items: center;
       justify-content: center;
     }
+
+    /* DeepSeek web-client tokens + whale character accents */
+    :root, :root[data-theme="dark"] {
+      color-scheme: dark;
+      --ds-bg: #151517; --ds-sidebar: #1b1b1c; --ds-layer-1: #232324;
+      --ds-layer-2: #2c2c2e; --ds-layer-3: #353638;
+      --ds-primary: #5686fe; --ds-primary-text: #679efe; --ds-primary-soft: #283142;
+      --ds-text: #f9fafb; --ds-text-secondary: #cfd3d6; --ds-text-tertiary: #adb2b8;
+      --ds-border-soft: rgba(255,255,255,.06); --ds-border: rgba(255,255,255,.12);
+      --ds-shadow: 0 12px 36px rgba(0,0,0,.32); --ds-canvas-opacity: .13;
+      --whale-gold: #d7b36a;
+      --accent: var(--ds-primary); --accent-dim: rgba(86,134,254,.14); --accent-glow: rgba(86,134,254,.28);
+      --cyan: #679efe; --cyan-dim: rgba(103,158,254,.12); --cyan-glow: rgba(103,158,254,.24);
+      --pink: #d9cfee; --pink-dim: rgba(217,207,238,.14);
+      --bg-dark: var(--ds-bg); --bg-panel: var(--ds-sidebar); --bg-frame: var(--ds-layer-1);
+      --text-primary: var(--ds-text); --text-secondary: var(--ds-text-tertiary); --border: var(--ds-border);
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --ds-bg: #fff; --ds-sidebar: #f9fafb; --ds-layer-1: #fff;
+      --ds-layer-2: #fff; --ds-layer-3: #f1f3f5;
+      --ds-primary: #3964fe; --ds-primary-text: #3964fe; --ds-primary-soft: #edf3fe;
+      --ds-text: #0f1115; --ds-text-secondary: #61666b; --ds-text-tertiary: #81858c;
+      --ds-border-soft: rgba(0,0,0,.04); --ds-border: rgba(0,0,0,.10);
+      --ds-shadow: 0 12px 36px rgba(15,17,21,.10); --ds-canvas-opacity: .05;
+      --whale-gold: #b98b3d;
+      --accent: var(--ds-primary); --accent-dim: rgba(57,100,254,.10); --accent-glow: rgba(57,100,254,.20);
+      --cyan: #3964fe; --cyan-dim: rgba(57,100,254,.08); --cyan-glow: rgba(57,100,254,.16);
+      --pink: #8d76b4; --pink-dim: rgba(141,118,180,.10);
+      --bg-dark: var(--ds-bg); --bg-panel: var(--ds-sidebar); --bg-frame: var(--ds-layer-1);
+      --text-primary: var(--ds-text); --text-secondary: var(--ds-text-tertiary); --border: var(--ds-border);
+    }
+
+    html, body {
+      background: var(--ds-bg);
+      color: var(--ds-text);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    #cyberCanvas { opacity: var(--ds-canvas-opacity); filter: saturate(.45); }
+    .crt-overlay { display: none; }
+    .vignette-overlay {
+      opacity: .28;
+      background: radial-gradient(circle at 56% 42%, transparent 45%, rgba(15,17,21,.18) 100%);
+    }
+    :root[data-theme="light"] .vignette-overlay { opacity: .06; }
+
+    .frame-outer {
+      background: color-mix(in srgb, var(--ds-bg) 94%, transparent);
+      border: 1px solid var(--ds-border); border-radius: 16px;
+      box-shadow: var(--ds-shadow); clip-path: none;
+    }
+    .frame-outer::before, .frame-outer::after, .frame-glow, .corner { display: none !important; }
+    .telemetry-header {
+      height: 40px; padding: 0 14px;
+      border-bottom: 1px solid var(--ds-border-soft);
+      background: color-mix(in srgb, var(--ds-bg) 82%, transparent);
+      backdrop-filter: blur(14px);
+    }
+    .dedsec-brand, .telemetry-stats {
+      background: var(--ds-layer-1); border: 1px solid var(--ds-border);
+      border-radius: 10px; box-shadow: none; color: var(--ds-text-secondary);
+      font-family: Inter, "PingFang SC", system-ui, sans-serif;
+    }
+    .dedsec-brand { color: var(--ds-primary-text); letter-spacing: .4px; }
+    .dedsec-brand .skull-icon {
+      border-radius: 50%; clip-path: none; background: var(--ds-primary);
+      box-shadow: inset 0 0 0 3px var(--ds-primary-soft);
+    }
+    .stat-val { color: var(--ds-primary-text); }
+
+    .danmaku-panel {
+      top: 52px; left: 14px; bottom: 348px;
+      background: color-mix(in srgb, var(--ds-sidebar) 92%, transparent);
+      border: 1px solid var(--ds-border); border-radius: 14px;
+      box-shadow: var(--ds-shadow); clip-path: none; overflow: hidden;
+      backdrop-filter: blur(16px);
+    }
+    .panel-header {
+      min-height: 42px; padding: 8px 12px; background: var(--ds-sidebar);
+      border-bottom: 1px solid var(--ds-border-soft);
+    }
+    .panel-header .dot {
+      background: var(--ds-primary); box-shadow: 0 0 0 4px var(--ds-primary-soft);
+    }
+    .panel-header .title {
+      color: var(--ds-text); font-family: Inter, "PingFang SC", system-ui, sans-serif;
+      font-size: 12px; letter-spacing: .4px; text-transform: none;
+    }
+    .panel-header .status.live { color: var(--ds-primary-text); text-shadow: none; }
+    .danmaku-feed { padding: 8px; gap: 6px; }
+    .dm-row {
+      padding: 8px 10px; background: var(--ds-layer-1);
+      border: 1px solid var(--ds-border-soft); border-left: 2px solid var(--ds-primary);
+      border-radius: 9px; color: var(--ds-text-secondary); box-shadow: none;
+    }
+    .dm-row.type-gift {
+      background: color-mix(in srgb, var(--whale-gold) 10%, var(--ds-layer-1));
+      border-color: color-mix(in srgb, var(--whale-gold) 45%, var(--ds-border));
+      border-left-color: var(--whale-gold); box-shadow: none;
+    }
+    .dm-row.type-sc {
+      background: var(--ds-primary-soft);
+      border-color: color-mix(in srgb, var(--ds-primary) 40%, var(--ds-border));
+      border-left-color: var(--ds-primary); box-shadow: none;
+    }
+    .dm-row.type-sc .dm-text { color: var(--ds-text); }
+    .dm-medal {
+      background: var(--ds-primary-soft); border: 0; border-radius: 5px;
+      color: var(--ds-primary-text); font-family: Inter, "PingFang SC", system-ui, sans-serif;
+    }
+    .dm-user, .dm-user.user-ascii, .dm-user.user-cjk, .dm-user.user-mixed,
+    .dm-user.guard-1, .dm-user.guard-2, .dm-user.guard-3 {
+      color: var(--ds-primary-text); text-shadow: none;
+    }
+    .dm-num { color: var(--ds-primary-text); }
+    .dm-sym { color: #8d76b4; }
+
+    .bottom-ticker-bar {
+      left: calc(var(--danmaku-width) + 30px); right: 14px; height: 50px; padding: 6px 8px;
+      background: color-mix(in srgb, var(--ds-sidebar) 91%, transparent);
+      border: 1px solid var(--ds-border); border-radius: 14px;
+      box-shadow: var(--ds-shadow); backdrop-filter: blur(16px);
+    }
+    .prompt-symbol { display: none; }
+    .ticker-section { gap: 9px; }
+    .ticker-tag {
+      background: var(--ds-layer-3); border: 0; border-radius: 18px;
+      color: var(--ds-text-tertiary); font-size: 12px; letter-spacing: 0; text-transform: none;
+    }
+    .ticker-tag.tag-current, .ticker-tag.tag-next {
+      background: var(--ds-primary-soft); border: 0;
+      color: var(--ds-primary-text); box-shadow: none;
+    }
+    .ticker-text, .ticker-text.text-current, .ticker-text.text-next {
+      color: var(--ds-text); font-family: Inter, "PingFang SC", system-ui, sans-serif;
+      font-size: 17px; letter-spacing: 0; text-shadow: none;
+    }
+    .ticker-divider { width: 1px; background: var(--ds-border); }
+    .ticker-right { padding-top: 0; }
+    .ticker-right::before { display: none; }
+    .ticker-label { color: var(--ds-text-tertiary); font-size: 13px; letter-spacing: 0; }
+    .model-badge {
+      padding: 7px 14px; border-radius: 18px; background: var(--ds-primary); color: #fff;
+      box-shadow: none; font-family: Inter, "PingFang SC", system-ui, sans-serif;
+      font-size: 14px; letter-spacing: .2px;
+    }
+    .frame-label { color: var(--ds-text-tertiary); font-family: Inter, system-ui, sans-serif; opacity: .7; }
+
+    .ctrl-bar {
+      height: 48px; padding: 0 12px;
+      background: color-mix(in srgb, var(--ds-sidebar) 96%, transparent);
+      border-top: 1px solid var(--ds-border); box-shadow: 0 -8px 24px rgba(0,0,0,.08);
+      backdrop-filter: blur(18px);
+    }
+    .ctrl-bar input[type="text"], .ctrl-select {
+      height: 30px; background: var(--ds-layer-1); border: 1px solid var(--ds-border);
+      border-radius: 8px; color: var(--ds-text);
+      font-family: Inter, "PingFang SC", system-ui, sans-serif;
+    }
+    .ctrl-btn, .rgb-swatch {
+      height: 30px; background: var(--ds-layer-3); border: 1px solid transparent;
+      border-radius: 16px; color: var(--ds-text-secondary);
+      font-family: Inter, "PingFang SC", system-ui, sans-serif; box-shadow: none;
+    }
+    .ctrl-btn:hover, .ctrl-btn.active, .rgb-swatch:hover, .rgb-swatch.sel {
+      background: var(--ds-primary-soft);
+      border-color: color-mix(in srgb, var(--ds-primary) 30%, transparent);
+      color: var(--ds-primary-text); box-shadow: none;
+    }
+    .ctrl-sep { background: var(--ds-border); }
+    .ctrl-label { color: var(--ds-text-tertiary); }
+    .ctrl-toggle {
+      width: 32px; height: 32px; border: 1px solid var(--ds-border); border-radius: 50%;
+      background: var(--ds-layer-1); color: var(--ds-primary-text); box-shadow: var(--ds-shadow);
+    }
+    #themeToggleBtn {
+      min-width: 78px; gap: 5px; display: inline-flex;
+      align-items: center; justify-content: center;
+    }
+    #themeToggleBtn .theme-icon { font-size: 14px; line-height: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
+    /* Official sidebar refinement: neutral text, flat rows, blue reserved for identity/state. */
+    .dedsec-brand {
+      position: relative;
+      width: 142px;
+      height: 30px;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+    }
+    .dedsec-brand .brand-logo {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 142px;
+      height: auto;
+      display: block;
+      transform: translateY(-50%);
+    }
+
+    .dm-row,
+    .dm-row.type-gift,
+    .dm-row.type-sc {
+      padding: 7px 10px;
+      background: transparent;
+      border: 0;
+      border-left: 0;
+      border-radius: 8px;
+      box-shadow: none;
+      color: var(--ds-text-secondary);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      font-weight: 400;
+      line-height: 1.55;
+    }
+    .dm-row:hover {
+      background: var(--ds-layer-1);
+    }
+    .dm-row.type-sc .dm-text,
+    .dm-text {
+      color: var(--ds-text-secondary);
+      font-weight: 400;
+    }
+    .dm-user,
+    .dm-user.user-ascii,
+    .dm-user.user-cjk,
+    .dm-user.user-mixed,
+    .dm-user.guard-1,
+    .dm-user.guard-2,
+    .dm-user.guard-3 {
+      color: var(--ds-text);
+      font-weight: 500;
+      text-shadow: none;
+    }
+    .dm-num,
+    .dm-sym,
+    .dm-row .sc {
+      color: var(--ds-text-secondary);
+      font-weight: 400;
+    }
+    .dm-medal {
+      background: var(--ds-layer-3);
+      color: var(--ds-text-tertiary);
+      border: 0;
+    }
+
+    .model-badge {
+      background: var(--ds-layer-3);
+      color: var(--ds-text);
+      border: 1px solid var(--ds-border-soft);
+    }
+    .ticker-tag.tag-current,
+    .ticker-tag.tag-next {
+      background: var(--ds-layer-3);
+      color: var(--ds-text-secondary);
+      border: 0;
+    }
+    .ticker-text.text-current,
+    .ticker-text.text-next {
+      color: var(--ds-text);
+    }
+    .ctrl-btn.active,
+    .rgb-swatch.sel {
+      background: var(--ds-layer-3);
+      border-color: var(--ds-border);
+      color: var(--ds-text);
+    }
+
+    /* Standalone brand lockup: no header strip, same width as the danmaku column. */
+    .telemetry-header {
+      height: 56px;
+      padding: 0 14px;
+      overflow: visible;
+      background: transparent;
+      border-bottom: 0;
+      backdrop-filter: none;
+    }
+    .dedsec-brand {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--danmaku-width);
+      height: 56px;
+      overflow: hidden;
+    }
+    .dedsec-brand .brand-logo {
+      left: 50%;
+      width: calc(var(--danmaku-width) * 1.13);
+      transform: translate(-50%, -50%);
+    }
+    .telemetry-stats {
+      position: absolute;
+      top: 13px;
+      right: 0;
+      left: auto;
+      margin-left: auto;
+    }
+    .panel-header {
+      display: none;
+    }
+    .danmaku-panel {
+      top: 66px;
+    }
+    @media (max-width: 920px) {
+      .telemetry-stats {
+        display: none;
+      }
+    }
   </style>
 </head>
 
@@ -742,11 +1067,10 @@
       <div class="corner bl"></div>
       <div class="corner br"></div>
 
-      <!-- Watch Dogs Telemetry Header -->
+        <!-- Watch Dogs Telemetry Header -->
       <div class="telemetry-header">
         <div class="dedsec-brand clip-cyber-corner">
-          <div class="skull-icon"></div>
-          Xnmk_OS v2.4.1
+          <img class="brand-logo" src="./assets/deepsleep_bird_transparent.png" alt="deepsleep">
         </div>
         <div class="telemetry-stats">
           <span>SYS:<span class="stat-val">ONLINE</span></span>
@@ -793,7 +1117,7 @@
     <input type="text" id="roomInput" value="https://live.bilibili.com/30068664?visit_id=7npfj9a19us0" placeholder="直播间号/链接">
     <button class="ctrl-btn" id="connectBtn">CONNECT</button>
     <button class="ctrl-btn" id="hotRoomBtn" title="官方热播6号">🔥官方6号</button>
-    <button class="ctrl-btn" id="cookieBtn" title="输入 SESSDATA 解开弹幕打码">COOKIE</button>
+    <button class="ctrl-btn" title="登录凭证仅从服务端 .env 读取" disabled>AUTH: SERVER</button>
     <button class="ctrl-btn" id="testBtn">TEST</button>
     <button class="ctrl-btn" id="clearBtn">CLR</button>
 
@@ -816,11 +1140,16 @@
     <input type="text" id="tickerNextInput" value="GodotMCP" placeholder="下一测试项目" style="width: 85px;" title="修改下一测试项目">
     <input type="text" id="tickerModelInput" value="GEMINI 3.6" placeholder="当前模型" style="width: 80px;" title="修改当前模型">
     <button class="ctrl-btn active" id="tickerToggleBtn" title="开关底部状态栏">BAR: ON</button>
+    <button class="ctrl-btn" id="themeToggleBtn" type="button" aria-label="切换浅色或深色模式">
+      <span class="theme-icon" aria-hidden="true">☀</span>
+      <span class="theme-label">浅色</span>
+    </button>
     <span class="ctrl-sep"></span>
 
     <label class="ctrl-label">W<input type="range" id="widthRange" min="220" max="520" value="260" step="10"></label>
     <label class="ctrl-label">F<input type="range" id="fontRange" min="11" max="22" value="16" step="1"></label>
     <select id="fontSelect" class="ctrl-select">
+      <option value="Inter,'PingFang SC','Microsoft YaHei',system-ui,sans-serif" selected>DeepSeek UI</option>
       <option value="'Share Tech Mono','JetBrains Mono',monospace">Tech Mono</option>
       <option value="'Orbitron',monospace">Orbitron</option>
       <option value="'Rajdhani',sans-serif">Rajdhani</option>
@@ -1003,7 +1332,7 @@
     }
 
     /* ============================================================
-       DANMAKU RELAY CLIENT — ws://localhost:8788
+       DANMAKU RELAY CLIENT — ws://localhost:7789
        ============================================================ */
     class BiliDanmaku {
       constructor(cb) {
@@ -1011,30 +1340,22 @@
         this.ws = null;
         this.connected = false;
         this._roomId = '';
-        this._cookie = '';
       }
 
-      connect(roomId, cookie) {
+      connect(roomId) {
         this._roomId = roomId || '';
-        if (cookie) this._cookie = cookie;
 
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify({ action: 'subscribe', roomId: this._roomId }));
-          if (this._cookie) {
-            this.ws.send(JSON.stringify({ action: 'setCookie', cookie: this._cookie }));
-          }
           return;
         }
 
         this.disconnect();
         const host = (location.hostname && location.hostname !== 'null' && location.hostname !== '') ? location.hostname : '127.0.0.1';
-        this.ws = new WebSocket(`ws://${host}:8787`);
+        this.ws = new WebSocket(`ws://${host}:7789`);
 
         this.ws.onopen = () => {
           this.connected = true;
-          if (this._cookie) {
-            this.ws.send(JSON.stringify({ action: 'setCookie', cookie: this._cookie }));
-          }
           if (this._roomId) {
             this.ws.send(JSON.stringify({ action: 'subscribe', roomId: this._roomId }));
           }
@@ -1059,15 +1380,8 @@
           this.connected = false;
           this.cb.status(false, 'OFFLINE');
           clearTimeout(this._reconnect);
-          this._reconnect = setTimeout(() => this.connect(this._roomId, this._cookie), 3000);
+          this._reconnect = setTimeout(() => this.connect(this._roomId), 3000);
         };
-      }
-
-      setCookie(cookie) {
-        this._cookie = cookie || '';
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify({ action: 'setCookie', cookie: this._cookie }));
-        }
       }
 
       disconnect() {
@@ -1094,7 +1408,6 @@
     const ctrlToggle = document.getElementById('ctrlToggle');
     const roomInput = document.getElementById('roomInput');
     const connectBtn = document.getElementById('connectBtn');
-    const cookieBtn = document.getElementById('cookieBtn');
     const testBtn = document.getElementById('testBtn');
     const clearBtn = document.getElementById('clearBtn');
     const colorPick = document.getElementById('colorPick');
@@ -1113,12 +1426,40 @@
     const tickerNextInput = document.getElementById('tickerNextInput');
     const tickerModelInput = document.getElementById('tickerModelInput');
     const tickerToggleBtn = document.getElementById('tickerToggleBtn');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
 
     const MAX_ROWS = 50;
     let rgbActive = false;
     let rgbHue = 0;
     let rgbRaf = null;
     let currentFx = 'none';
+
+    function applyTheme(theme, persist = true) {
+      const nextTheme = theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = nextTheme;
+
+      if (!document.documentElement.dataset.customAccent) {
+        ['--accent', '--accent-dim', '--accent-glow'].forEach(
+          prop => document.documentElement.style.removeProperty(prop)
+        );
+      }
+
+      if (themeToggleBtn) {
+        const isLight = nextTheme === 'light';
+        themeToggleBtn.querySelector('.theme-icon').textContent = isLight ? '☀' : '☾';
+        themeToggleBtn.querySelector('.theme-label').textContent = isLight ? '浅色' : '深色';
+        themeToggleBtn.title = isLight ? '当前为浅色模式，点击切换深色' : '当前为深色模式，点击切换浅色';
+        themeToggleBtn.setAttribute('aria-pressed', String(isLight));
+      }
+
+      if (persist) localStorage.setItem('xnmk-ui-theme', nextTheme);
+    }
+
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+      });
+    }
 
     function getScrambler() { return new ScrambleText(); }
 
@@ -1214,7 +1555,7 @@
     if (hotRoomBtn) {
       hotRoomBtn.addEventListener('click', () => {
         roomInput.value = 'http://live.bilibili.com/6';
-        bili.connect('6', localStorage.getItem('bili_sessdata'));
+        bili.connect('6');
       });
     }
 
@@ -1282,18 +1623,7 @@
     /* Controls Event Listeners */
     connectBtn.addEventListener('click', () => {
       if (bili.connected) { bili.disconnect(); }
-      else { bili.connect(parseRoomId(roomInput.value), localStorage.getItem('bili_sessdata')); }
-    });
-
-    cookieBtn.addEventListener('click', () => {
-      const curr = localStorage.getItem('bili_sessdata') || '';
-      const input = prompt('请输入 B站 SESSDATA 登录凭证：', curr);
-      if (input !== null) {
-        const val = input.trim();
-        localStorage.setItem('bili_sessdata', val);
-        if (val) { bili.setCookie(val); alert('SESSDATA 凭证已保存！'); }
-        else { alert('凭证已清除。'); }
-      }
+      else { bili.connect(parseRoomId(roomInput.value)); }
     });
 
     clearBtn.addEventListener('click', () => { feed.innerHTML = ''; });
@@ -1313,6 +1643,7 @@
 
     function setAccent(hex) {
       toggleRGB(false);
+      document.documentElement.dataset.customAccent = 'true';
       document.documentElement.style.setProperty('--accent', hex);
       const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
       document.documentElement.style.setProperty('--accent-dim', `rgba(${r},${g},${b},0.15)`);
@@ -1347,13 +1678,10 @@
     (function initParams() {
       const p = new URLSearchParams(location.search);
       if (p.get('room')) roomInput.value = p.get('room');
-      setAccent(p.get('color') || '#d4ff00');
+      applyTheme(p.get('theme') || document.documentElement.dataset.theme, false);
+      if (p.get('color')) setAccent(p.get('color'));
       if (p.get('rgb') === 'true') toggleRGB(true);
       setFX(p.get('fx') || 'flow');
-      if (p.get('sessdata') || p.get('cookie')) {
-        const c = p.get('sessdata') || p.get('cookie');
-        localStorage.setItem('bili_sessdata', c);
-      }
       if (p.get('width')) { widthRange.value = p.get('width'); document.documentElement.style.setProperty('--danmaku-width', p.get('width') + 'px'); }
       if (p.get('fontsize')) { fontRange.value = p.get('fontsize'); document.documentElement.style.setProperty('--dm-font-size', p.get('fontsize') + 'px'); }
       if (p.get('font')) { fontSelect.value = p.get('font'); document.documentElement.style.setProperty('--dm-font-family', p.get('font')); }
@@ -1371,9 +1699,8 @@
 
       updateTickerDisplay(false);
 
-      const sessdata = localStorage.getItem('bili_sessdata') || '';
       if (p.get('autoconnect') !== 'false') {
-        bili.connect(parseRoomId(roomInput.value), sessdata);
+        bili.connect(parseRoomId(roomInput.value));
       }
     })();
   </script>

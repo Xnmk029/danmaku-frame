@@ -1,0 +1,154 @@
+import { WebSocketServer, WebSocket } from 'ws';
+
+function isLoopback(address = '') {
+  return address === '127.0.0.1'
+    || address === '::1'
+    || address === '::ffff:127.0.0.1';
+}
+
+export function createWebSocketGateway({
+  host,
+  port,
+  authToken,
+  maxPayload,
+  biliClient,
+  songService,
+}) {
+  const clients = new Set();
+  let activeRoomId = '';
+  const server = new WebSocketServer({ host, port, maxPayload, clientTracking: false });
+  const ready = new Promise((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
+  });
+
+  function send(client, payload) {
+    if (client.readyState !== WebSocket.OPEN) return;
+    try {
+      client.send(JSON.stringify(payload));
+    } catch (error) {
+      console.error('[WebSocket] 发送消息失败:', error.message);
+    }
+  }
+
+  function broadcast(payload) {
+    for (const client of clients) send(client.socket, payload);
+  }
+
+  function authorized(client, payload) {
+    return isLoopback(client.address)
+      || (authToken && payload.token === authToken);
+  }
+
+  biliClient.on('status', broadcast);
+  biliClient.on('event', event => {
+    broadcast(event);
+    if (event.type === 'danmaku') {
+      songService.handleDanmaku(event).catch(error => {
+        console.error('[SongRequest] 弹幕命令处理失败:', error.message);
+      });
+    }
+  });
+  biliClient.on('warning', error => console.error('[Bilibili]', error.message));
+  songService.on('broadcast', broadcast);
+
+  server.on('connection', (socket, request) => {
+    const client = {
+      socket,
+      address: request.socket.remoteAddress || '',
+      subscribed: false,
+      messageCount: 0,
+      windowStartedAt: Date.now(),
+    };
+    clients.add(client);
+    send(socket, songService.snapshot());
+
+    socket.on('message', rawMessage => {
+      const now = Date.now();
+      if (now - client.windowStartedAt >= 60_000) {
+        client.windowStartedAt = now;
+        client.messageCount = 0;
+      }
+      client.messageCount += 1;
+      if (client.messageCount > 60) {
+        send(socket, { type: 'error', code: 'RATE_LIMITED', message: '请求过于频繁' });
+        return;
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(rawMessage.toString());
+      } catch {
+        send(socket, { type: 'error', code: 'INVALID_JSON', message: '消息必须是 JSON' });
+        return;
+      }
+
+      if (payload.action === 'song.get_state') {
+        send(socket, songService.snapshot());
+        return;
+      }
+
+      if (!authorized(client, payload)) {
+        send(socket, { type: 'error', code: 'UNAUTHORIZED', message: '控制操作需要有效令牌' });
+        return;
+      }
+
+      if (payload.action === 'subscribe') {
+        const requestedRoom = String(payload.roomId || biliClient.config.defaultRoomId);
+        client.subscribed = true;
+        if (requestedRoom !== activeRoomId) {
+          activeRoomId = requestedRoom;
+          biliClient.connect(requestedRoom).catch(error => {
+            console.error('[Bilibili] 连接失败:', error.message);
+            broadcast({ type: 'status', connected: false, message: 'ERROR' });
+          });
+        }
+      } else if (payload.action === 'unsubscribe') {
+        client.subscribed = false;
+        if (![...clients].some(item => item.subscribed)) {
+          activeRoomId = '';
+          biliClient.disconnect();
+        }
+      } else if (payload.action === 'song.player_event') {
+        songService.handlePlayerEvent(payload.event);
+      } else if (payload.action === 'song.admin') {
+        if (payload.command === 'skip') songService.advance('skipped');
+        else if (payload.command === 'clear') songService.clearQueue();
+        else if (payload.command === 'pause' || payload.command === 'resume') {
+          broadcast({ type: 'song.player_command', action: payload.command });
+        }
+      } else if (payload.action === 'setCookie') {
+        send(socket, {
+          type: 'error',
+          code: 'COOKIE_INPUT_DISABLED',
+          message: '浏览器端 Cookie 输入已停用，请通过服务端 .env 配置',
+        });
+      }
+    });
+
+    socket.on('error', error => console.error('[WebSocket] 客户端异常:', error.message));
+    socket.on('close', () => {
+      clients.delete(client);
+      if (client.subscribed && ![...clients].some(item => item.subscribed)) {
+        activeRoomId = '';
+        biliClient.disconnect();
+      }
+    });
+  });
+
+  server.on('error', error => console.error('[WebSocket] Server error:', error.message));
+
+  return {
+    server,
+    ready,
+    broadcast,
+    clientCount: () => clients.size,
+    stop: () => new Promise(resolve => {
+      for (const client of clients) client.socket.close(1001, 'Server shutdown');
+      biliClient.disconnect();
+      server.close(() => resolve());
+    }),
+  };
+}
+
+export { isLoopback };

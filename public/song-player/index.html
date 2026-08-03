@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>点歌姬 · Now Playing</title>
+  <link rel="stylesheet" href="./player.css">
+</head>
+<body>
+  <main class="player" id="player" data-state="idle">
+    <div class="scanline"></div>
+    <section class="cover-shell">
+      <img id="cover" alt="" hidden>
+      <div id="coverFallback" class="cover-fallback">♪</div>
+      <div class="disc-ring"></div>
+    </section>
+
+    <section class="content">
+      <header>
+        <span class="eyebrow">LIVE REQUEST SYSTEM</span>
+        <span id="status" class="status">STANDBY</span>
+      </header>
+
+      <h1 id="title">等待点歌</h1>
+      <p id="artist" class="artist">发送“点歌 歌名”加入队列</p>
+      <p id="requester" class="requester">REQUESTED BY —</p>
+
+      <div class="progress">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <div class="time-row">
+        <span id="elapsed">00:00</span>
+        <span id="duration">00:00</span>
+      </div>
+
+      <div class="queue-line">
+        <span>NEXT</span>
+        <strong id="nextSong">QUEUE EMPTY</strong>
+        <span id="queueCount">0</span>
+      </div>
+    </section>
+  </main>
+
+  <audio id="audio" preload="auto"></audio>
+  <script type="module" src="./player.js"></script>
+</body>
+</html>

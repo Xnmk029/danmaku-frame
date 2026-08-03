@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>点歌姬控制台</title>
+  <link rel="stylesheet" href="./player.css">
+  <style>
+    html, body { overflow: auto; background: #050a12; }
+    body { display: block; color: #eefcff; }
+    .admin { width: min(900px, calc(100% - 32px)); margin: 32px auto; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+    button { padding: 10px 16px; color: #eaffff; background: #0b1824; border: 1px solid var(--line); cursor: pointer; }
+    button:hover { color: #031016; background: var(--accent); }
+    .panel { padding: 20px; background: var(--surface); border: 1px solid var(--line); }
+    ol { margin: 0; padding-left: 24px; }
+    li { padding: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .muted { color: rgba(238,252,255,.55); }
+  </style>
+</head>
+<body>
+  <main class="admin">
+    <span class="eyebrow">SONG REQUEST ADMIN</span>
+    <h1>点歌姬控制台</h1>
+    <p id="connection" class="muted">正在连接……</p>
+    <div class="toolbar">
+      <button data-command="pause">暂停</button>
+      <button data-command="resume">继续</button>
+      <button data-command="skip">切歌</button>
+      <button data-command="clear">清空等待队列</button>
+    </div>
+    <section class="panel">
+      <h2 id="current">当前：等待播放</h2>
+      <h3>等待队列</h3>
+      <ol id="queue"></ol>
+    </section>
+  </main>
+  <script type="module">
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    const port = params.get('wsPort') || '7789';
+    const connection = document.getElementById('connection');
+    const current = document.getElementById('current');
+    const queue = document.getElementById('queue');
+    let socket;
+
+    function send(payload) {
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ ...payload, ...(token ? { token } : {}) }));
+      }
+    }
+
+    function connect() {
+      socket = new WebSocket(`ws://${location.hostname || '127.0.0.1'}:${port}`);
+      socket.onopen = () => {
+        connection.textContent = '已连接';
+        send({ action: 'song.get_state' });
+      };
+      socket.onmessage = event => {
+        const data = JSON.parse(event.data);
+        if (data.type !== 'song.state') return;
+        current.textContent = data.current
+          ? `当前：${data.current.title} / ${data.current.requestedBy?.name || '匿名用户'}`
+          : '当前：等待播放';
+        queue.replaceChildren(...data.queue.map(item => {
+          const row = document.createElement('li');
+          row.textContent = `${item.title} — ${item.requestedBy?.name || '匿名用户'}`;
+          return row;
+        }));
+      };
+      socket.onclose = () => {
+        connection.textContent = '连接已断开，3 秒后重试';
+        setTimeout(connect, 3000);
+      };
+    }
+
+    document.querySelectorAll('[data-command]').forEach(button => {
+      button.addEventListener('click', () => {
+        send({ action: 'song.admin', command: button.dataset.command });
+      });
+    });
+    connect();
+  </script>
+</body>
+</html>
