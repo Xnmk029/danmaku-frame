@@ -21,43 +21,82 @@ test('returns null for unsupported events', () => {
   assert.equal(normalizeBiliCommand(null), null);
 });
 
-test('parses inline emots from msgExtra (string form)', () => {
+test('parses inline emots from msgExtra (new wrapped protocol, real sample)', () => {
   const event = normalizeBiliCommand({
     cmd: 'DANMU_MSG',
     info: [
-      [0, 1, 25, 16777215, 0, 0, 0, '', 0, 0, 0, '', 1, null, null, JSON.stringify({
-        emots: {
-          '[大笑]': { url: 'https://i0.hdslb.com/bfs/emote/a1.png', meta: { size: 'S' } },
-          '[妙啊]': { url: 'https://i0.hdslb.com/bfs/emote/b2.png', meta: { size: 'L' } },
-        },
+      [0, 1, 25, 16777215, 0, 0, 0, '', 0, 0, 0, '', 1, '{}', null, JSON.stringify({
+        extra: JSON.stringify({
+          send_from_me: false,
+          content: '真的[跪了]',
+          emoticon_unique: '',
+          bulge_display: 0,
+          emots: {
+            '[跪了]': {
+              count: 1,
+              emoji: '[跪了]',
+              emoticon_id: 276,
+              emoticon_unique: 'emoji_276',
+              height: 20,
+              url: 'http://i0.hdslb.com/bfs/live/4f2155b108047d60c1fa9dccdc4d7abba18379a0.png',
+              width: 20,
+            },
+            '[妙啊]': {
+              emoji: '[妙啊]',
+              height: 62,
+              url: 'http://i0.hdslb.com/bfs/live/big2.png',
+              width: 110,
+            },
+          },
+        }),
       })],
-      '哈哈[大笑]今天[妙啊]',
+      '真的[跪了]',
       [123, '表情用户'],
     ],
   });
 
   assert.deepEqual(event.emots, [
-    { key: '[大笑]', url: 'https://i0.hdslb.com/bfs/emote/a1.png', size: 'S' },
-    { key: '[妙啊]', url: 'https://i0.hdslb.com/bfs/emote/b2.png', size: 'L' },
+    { key: '[跪了]', url: 'https://i0.hdslb.com/bfs/live/4f2155b108047d60c1fa9dccdc4d7abba18379a0.png', size: 'S', bulge: false },
+    { key: '[妙啊]', url: 'https://i0.hdslb.com/bfs/live/big2.png', size: 'L', bulge: false },
   ]);
   assert.equal(event.bigEmote, null);
-  assert.equal(event.text, '哈哈[大笑]今天[妙啊]');
+  assert.equal(event.text, '真的[跪了]');
 });
 
-test('parses inline emots from msgExtra (object form)', () => {
+test('parses inline emots from msgExtra (legacy direct object form)', () => {
   const event = normalizeBiliCommand({
     cmd: 'DANMU_MSG',
     info: [[0, 0, 0, 0, 0, 0, 0, '', 0, 0, 0, '', 1, null, null, {
       emots: {
-        '[2233娘_疑问]': { url: 'https://i0.hdslb.com/bfs/emote/c3.png', meta: { size: 'M' } },
+        '[2233娘_疑问]': { emoji: '[2233娘_疑问]', url: 'http://i0.hdslb.com/bfs/emote/c3.png', width: 40, height: 40 },
       },
     }], '[2233娘_疑问]', [456, '内嵌用户']],
   });
 
   assert.deepEqual(event.emots, [
-    { key: '[2233娘_疑问]', url: 'https://i0.hdslb.com/bfs/emote/c3.png', size: 'M' },
+    { key: '[2233娘_疑问]', url: 'https://i0.hdslb.com/bfs/emote/c3.png', size: 'M', bulge: false },
   ]);
   assert.equal(event.bigEmote, null);
+});
+
+test('marks bulge emote when bulge_display is 1', () => {
+  const event = normalizeBiliCommand({
+    cmd: 'DANMU_MSG',
+    info: [[0, 0, 0, 0, 0, 0, 0, '', 0, 0, 0, '', 1, '{}', null, {
+      extra: JSON.stringify({
+        content: '[贴纸]',
+        bulge_display: 1,
+        emots: {
+          '[贴纸]': { emoji: '[贴纸]', url: 'http://i0.hdslb.com/bfs/live/sticker.png', width: 120, height: 60 },
+        },
+      }),
+    }], '[贴纸]', [789, '贴纸用户']],
+  });
+
+  assert.equal(event.emots.length, 1);
+  assert.equal(event.emots[0].bulge, true);
+  assert.equal(event.emots[0].size, 'L');
+  assert.equal(event.emots[0].url, 'https://i0.hdslb.com/bfs/live/sticker.png');
 });
 
 test('parses a whole-line big emote from info[0][13]', () => {

@@ -1,20 +1,37 @@
-function parseDanmakuEmots(info0) {
-  // info[0][15]: msgExtra（JSON 字符串或对象），emots: { "[表情名]": { url, meta: { size } } }
-  const raw = Array.isArray(info0) ? info0[15] : null;
-  let extra = null;
-  if (typeof raw === 'string') {
-    try { extra = JSON.parse(raw); } catch { /* 非 JSON 忽略 */ }
-  } else if (raw && typeof raw === 'object') {
-    extra = raw;
+function unwrapMsgExtra(raw) {
+  // 新版协议：info[0][15] = { extra: "<msgExtra JSON>" }（包装层）
+  // 旧版协议：info[0][15] 直接是 msgExtra（对象或 JSON 字符串）
+  if (raw === null || raw === undefined) return null;
+  try {
+    const outer = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (outer && typeof outer.extra === 'string') return JSON.parse(outer.extra);
+    if (outer && typeof outer.extra === 'object' && outer.extra !== null) return outer.extra;
+    return outer;
+  } catch {
+    return null;
   }
+}
+
+function inferEmoteSize(width, height) {
+  const d = Math.max(Number(width) || 0, Number(height) || 0);
+  if (d >= 60) return 'L';
+  if (d >= 32) return 'M';
+  return 'S';
+}
+
+function parseDanmakuEmots(info0) {
+  // msgExtra.emots: { "[表情名]": { emoji, url, width, height, emoticon_unique, ... } }
+  const msgExtra = unwrapMsgExtra(Array.isArray(info0) ? info0[15] : null);
   const emots = [];
-  if (extra?.emots && typeof extra.emots === 'object') {
-    for (const [key, entry] of Object.entries(extra.emots)) {
+  if (msgExtra?.emots && typeof msgExtra.emots === 'object') {
+    for (const [key, entry] of Object.entries(msgExtra.emots)) {
       if (entry && typeof entry === 'object' && entry.url) {
         emots.push({
           key: String(key || ''),
-          url: String(entry.url),
-          size: String(entry.meta?.size || 'S').toUpperCase(),
+          // 统一 https，避免 HTTPS 页面 mixed-content 拦截
+          url: String(entry.url).replace(/^http:\/\//i, 'https://'),
+          size: inferEmoteSize(entry.width, entry.height),
+          bulge: Number(msgExtra.bulge_display || 0) === 1,
         });
       }
     }
@@ -23,12 +40,12 @@ function parseDanmakuEmots(info0) {
 }
 
 function parseBigEmote(info0) {
-  // info[0][13]: 整条弹幕即单个大表情
+  // 旧协议：info[0][13] 是整条大表情对象；新协议该位置为 "{}"（忽略）
   const entry = Array.isArray(info0) ? info0[13] : null;
   if (!entry || typeof entry !== 'object' || !entry.url) return null;
   return {
     unique: String(entry.emoticon_unique || ''),
-    url: String(entry.url),
+    url: String(entry.url).replace(/^http:\/\//i, 'https://'),
     width: Number(entry.width || 0),
     height: Number(entry.height || 0),
   };
