@@ -1,3 +1,39 @@
+function parseDanmakuEmots(info0) {
+  // info[0][15]: msgExtra（JSON 字符串或对象），emots: { "[表情名]": { url, meta: { size } } }
+  const raw = Array.isArray(info0) ? info0[15] : null;
+  let extra = null;
+  if (typeof raw === 'string') {
+    try { extra = JSON.parse(raw); } catch { /* 非 JSON 忽略 */ }
+  } else if (raw && typeof raw === 'object') {
+    extra = raw;
+  }
+  const emots = [];
+  if (extra?.emots && typeof extra.emots === 'object') {
+    for (const [key, entry] of Object.entries(extra.emots)) {
+      if (entry && typeof entry === 'object' && entry.url) {
+        emots.push({
+          key: String(key || ''),
+          url: String(entry.url),
+          size: String(entry.meta?.size || 'S').toUpperCase(),
+        });
+      }
+    }
+  }
+  return emots;
+}
+
+function parseBigEmote(info0) {
+  // info[0][13]: 整条弹幕即单个大表情
+  const entry = Array.isArray(info0) ? info0[13] : null;
+  if (!entry || typeof entry !== 'object' || !entry.url) return null;
+  return {
+    unique: String(entry.emoticon_unique || ''),
+    url: String(entry.url),
+    width: Number(entry.width || 0),
+    height: Number(entry.height || 0),
+  };
+}
+
 export function cleanDanmakuUser(rawUser, uid, medal) {
   if (!rawUser) return '匿名用户';
   if (/^某\*+$/.test(rawUser) || (rawUser.startsWith('某') && rawUser.includes('*'))) {
@@ -23,6 +59,8 @@ export function normalizeBiliCommand(payload) {
       uid: String(uid || ''),
       user: cleanDanmakuUser(rawUser, uid, medal),
       text: String(info[1] || ''),
+      emots: parseDanmakuEmots(info[0]),
+      bigEmote: parseBigEmote(info[0]),
       guard: Number(info[7] || 0),
       medal,
       admin: Boolean(info[2]?.[2]),

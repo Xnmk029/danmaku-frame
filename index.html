@@ -430,6 +430,26 @@
       font-weight: bold;
     }
 
+    /* === Bilibili emote images (emots / big emote) === */
+    .dm-row .dm-emoji {
+      height: 1.3em;
+      vertical-align: -0.28em;
+      margin: 0 2px;
+    }
+    .dm-row .dm-emoji.size-m { height: 1.9em; }
+    .dm-row .dm-emoji.size-l { height: 2.6em; }
+    .dm-row.type-bigemote {
+      background: rgba(0, 240, 255, 0.06);
+      border-left-color: var(--cyan);
+    }
+    .dm-row.type-bigemote .dm-bigemote {
+      display: block;
+      max-width: 100%;
+      max-height: 96px;
+      margin: 4px 0 2px;
+      object-fit: contain;
+    }
+
     /* === DEDSEC BOTTOM TICKER STATUS BAR (Exact Layout Matching Image 2) === */
     .bottom-ticker-bar {
       position: absolute;
@@ -1601,7 +1621,9 @@
     function addDanmaku(data) {
       const displayUser = cleanUserName(data.user, data.medal);
       const row = document.createElement('div');
-      row.className = 'dm-row clip-cyber-card' + (data.type === 'gift' ? ' type-gift' : data.type === 'sc' ? ' type-sc' : '');
+      row.className = 'dm-row clip-cyber-card'
+        + (data.type === 'gift' ? ' type-gift' : data.type === 'sc' ? ' type-sc' : '')
+        + (data.bigEmote ? ' type-bigemote' : '');
 
       let html = '';
       if (data.medal) {
@@ -1609,15 +1631,57 @@
       }
       const uCls = getUserClass(displayUser);
       html += `<span class="dm-user ${uCls}${data.guard ? ' guard-' + data.guard : ''}">${displayUser}</span>`;
-      html += `<span class="dm-text"></span>`;
+      if (data.bigEmote) {
+        const h = Math.min(Math.max(Number(data.bigEmote.height) || 60, 24), 96);
+        html += `<img class="dm-bigemote" src="${data.bigEmote.url}" alt="" style="height:${h}px">`;
+      } else {
+        html += '<span class="dm-text"></span>';
+      }
       row.innerHTML = html;
       feed.appendChild(row);
 
       while (feed.children.length > MAX_ROWS) feed.removeChild(feed.firstChild);
 
+      if (data.bigEmote) return;
+
       const textEl = row.querySelector('.dm-text');
       const scr = getScrambler();
-      scr.decode(textEl, data.text, { duration: 420 });
+      if (data.emots && data.emots.length) {
+        renderEmoteSegments(textEl, data.text, data.emots, scr);
+      } else {
+        scr.decode(textEl, data.text, { duration: 420 });
+      }
+    }
+
+    /* 分段渲染：文字段保留 Scramble 解码，[表情] 段替换为图片 */
+    function renderEmoteSegments(el, text, emots, scr) {
+      const map = new Map(emots.map(e => [e.key, e]));
+      const pattern = /\[[^\]]{1,24}\]/g;
+      const addText = segText => {
+        if (!segText) return;
+        const seg = document.createElement('span');
+        seg.className = 'dm-text-seg';
+        el.appendChild(seg);
+        scr.decode(seg, segText, { duration: 300 });
+      };
+      let last = 0;
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        addText(text.slice(last, match.index));
+        const emote = map.get(match[0]);
+        if (emote) {
+          const img = document.createElement('img');
+          img.className = 'dm-emoji' + (emote.size === 'L' ? ' size-l' : emote.size === 'M' ? ' size-m' : '');
+          img.src = emote.url;
+          img.alt = emote.key;
+          img.draggable = false;
+          el.appendChild(img);
+        } else {
+          addText(match[0]); // 未注册表情名按文本显示
+        }
+        last = match.index + match[0].length;
+      }
+      addText(text.slice(last));
     }
 
     /* Controls Event Listeners */

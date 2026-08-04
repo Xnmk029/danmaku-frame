@@ -94,6 +94,8 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   min-width: 3.2ch;
+  overflow: hidden;            /* 钳制字形行盒超出（Segoe UI 实际行盒 > 1em） */
+  padding: 0 0.05em 0 0.03em;  /* 左右防 letter-spacing 尾随裁切 */
   transition: color 0.4s ease;
 }
 .countdown.urgent {
@@ -168,6 +170,16 @@ body {
 .dm-item .u { color: var(--primary); font-weight: 600; margin-right: 8px; font-size: 13px; }
 .dm-item.fade { opacity: 0; transition: opacity 1.1s ease; animation: none; transform: none; }
 @keyframes dmIn { to { opacity: 1; transform: translateY(0); } }
+
+/* B站表情：内嵌 [表情] → 图片，整条大表情 → 独立行 */
+.dm-item .dm-emoji {
+  height: 1.3em; vertical-align: -0.28em; margin: 0 2px;
+}
+.dm-item .dm-emoji.size-m { height: 1.9em; }
+.dm-item .dm-emoji.size-l { height: 2.6em; }
+.dm-item.type-bigemote .big-emote {
+  display: block; max-height: 84px; margin-top: 4px; object-fit: contain;
+}
 
 /* ============ FG：左下信息卡片（16/20px 安全内边距） ============ */
 .info-block {
@@ -618,16 +630,24 @@ $('socialText').textContent = cfg.social;
     statusText.textContent = text;
   };
 
-  const push = (user, text) => {
+  const push = (user, text, emots, bigEmote) => {
     const el = document.createElement('div');
-    el.className = 'dm-item';
+    el.className = 'dm-item' + (bigEmote ? ' type-bigemote' : '');
     const u = document.createElement('span');
     u.className = 'u';
     u.textContent = user;
     el.appendChild(u);
-    el.appendChild(document.createTextNode(''));
+    if (bigEmote) {
+      const img = document.createElement('img');
+      img.className = 'big-emote';
+      img.src = bigEmote.url;
+      img.alt = '';
+      img.draggable = false;
+      el.appendChild(img);
+    } else {
+      appendEmoteSegments(el, text, emots || []);
+    }
     feed.appendChild(el);
-    scrambler.run(el, `${user}  ${text}`, { duration: 420 });
     items.push({ el, timer: null });
     while (items.length > MAX_ITEMS) {
       const old = items.shift();
@@ -641,6 +661,36 @@ $('socialText').textContent = cfg.social;
     }, 8000);
   };
 
+  /* 分段：文字段 Scramble 解码，[表情] 段替换为图片 */
+  function appendEmoteSegments(el, text, emots) {
+    const map = new Map(emots.map(e => [e.key, e]));
+    const pattern = /\[[^\]]{1,24}\]/g;
+    const addText = segText => {
+      if (!segText) return;
+      const seg = document.createElement('span');
+      el.appendChild(seg);
+      scrambler.run(seg, segText, { duration: 320 });
+    };
+    let last = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      addText(text.slice(last, match.index));
+      const emote = map.get(match[0]);
+      if (emote) {
+        const img = document.createElement('img');
+        img.className = 'dm-emoji' + (emote.size === 'L' ? ' size-l' : emote.size === 'M' ? ' size-m' : '');
+        img.src = emote.url;
+        img.alt = emote.key;
+        img.draggable = false;
+        el.appendChild(img);
+      } else {
+        addText(match[0]);
+      }
+      last = match.index + match[0].length;
+    }
+    addText(text.slice(last));
+  }
+
   const connect = () => {
     clearTimeout(reconnectTimer);
     const host = (location.hostname && location.hostname !== 'null') ? location.hostname : '127.0.0.1';
@@ -653,7 +703,7 @@ $('socialText').textContent = cfg.social;
       let payload;
       try { payload = JSON.parse(ev.data); } catch { return; }
       if (payload.type === 'danmaku') {
-        push(payload.user || '匿名用户', payload.text || '');
+        push(payload.user || '匿名用户', payload.text || '', payload.emots, payload.bigEmote);
       } else if (payload.type === 'status') {
         setStatus(payload.connected ? 'on' : 'err', payload.message || 'OFFLINE');
       }
