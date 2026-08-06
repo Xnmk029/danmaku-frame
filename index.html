@@ -3,6 +3,8 @@
 
 <head>
   <meta charset="UTF-8">
+  <!-- 表情图片来自 i0.hdslb.com CDN，防盗链校验 Referer；不发送 Referer 才能加载 -->
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
     (() => {
@@ -1675,6 +1677,8 @@
           img.src = emote.url;
           img.alt = emote.key;
           img.draggable = false;
+          // 防盗链/网络失败时回退为纯文本，避免破碎图图标
+          img.onerror = () => img.replaceWith(document.createTextNode(emote.key));
           el.appendChild(img);
         } else {
           addText(match[0]); // 未注册表情名按文本显示
