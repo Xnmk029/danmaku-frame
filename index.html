@@ -488,15 +488,27 @@
     .ncm-top { display: flex; align-items: baseline; gap: 6px; }
     .ncm-title {
       flex: 1; min-width: 0;
+      overflow: hidden; white-space: nowrap;
       font-size: 13px; font-weight: 600; color: var(--ds-text);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ncm-title .mt, .ncm-artist .mt {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: ncmMarquee 10s linear infinite;
+      animation-play-state: paused;
+    }
+    .ncm-title.marquee-on .mt, .ncm-artist.marquee-on .mt { animation-play-state: running; }
+    @keyframes ncmMarquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
     }
     .ncm-led { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .ncm-led.playing { background: #34c759; box-shadow: 0 0 8px rgba(52, 199, 89, 0.6); }
     .ncm-led.paused  { background: #ff9f0a; box-shadow: 0 0 8px rgba(255, 159, 10, 0.6); }
     .ncm-artist {
+      overflow: hidden; white-space: nowrap;
       font-size: 11px; color: var(--ds-text-secondary);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .ncm-bar { height: 3px; background: var(--ds-layer-1); border-radius: 999px; overflow: hidden; }
     .ncm-fill { height: 100%; width: 0%; background: var(--ds-primary); border-radius: 999px; transition: width 0.5s linear; }
@@ -1170,10 +1182,10 @@
         <img class="ncm-cover" id="ncmCover" alt="">
         <div class="ncm-body">
           <div class="ncm-top">
-            <span class="ncm-title" id="ncmTitle">—</span>
+            <span class="ncm-title" id="ncmTitle"><span class="mt">—</span></span>
             <span class="ncm-led" id="ncmLed"></span>
           </div>
-          <div class="ncm-artist" id="ncmArtist">—</div>
+          <div class="ncm-artist" id="ncmArtist"><span class="mt">—</span></div>
           <div class="ncm-bar"><div class="ncm-fill" id="ncmFill"></div></div>
           <div class="ncm-time"><span id="ncmCur">00:00</span><span id="ncmDur">00:00</span></div>
         </div>
@@ -1672,7 +1684,9 @@
     const ncmEl = document.getElementById('ncmNow');
     let ncmState = null;
     const ncmTitle = document.getElementById('ncmTitle');
+    const ncmTitleTrack = ncmTitle.querySelector('.mt');
     const ncmArtist = document.getElementById('ncmArtist');
+    const ncmArtistTrack = ncmArtist.querySelector('.mt');
     const ncmCover = document.getElementById('ncmCover');
     const ncmCur = document.getElementById('ncmCur');
     const ncmDur = document.getElementById('ncmDur');
@@ -1682,14 +1696,23 @@
       const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
       return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     };
+    function applyMarquee(el, track, text) {
+      if (track.textContent === text) return;
+      track.textContent = text;
+      // 内容变化时强制重启动画
+      track.style.animation = 'none';
+      void track.offsetWidth;
+      track.style.animation = '';
+      el.classList.toggle('marquee-on', track.scrollWidth > el.clientWidth + 2);
+    }
     function renderNcm(p) {
       ncmState = p;
       if (!p || !p.song || !p.playing) { ncmEl.hidden = true; return; }
       ncmEl.hidden = false;
       const name = p.song.name || '未知歌曲';
       const artist = (p.song.artists || []).join(' / ') || '未知歌手';
-      if (ncmTitle.textContent !== name) ncmTitle.textContent = name;
-      if (ncmArtist.textContent !== artist) ncmArtist.textContent = artist;
+      applyMarquee(ncmTitle, ncmTitleTrack, name);
+      applyMarquee(ncmArtist, ncmArtistTrack, artist);
       if (p.cover) {
         const url = p.cover.kind === 'uri'
           ? p.cover.url
