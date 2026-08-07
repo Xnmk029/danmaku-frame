@@ -195,6 +195,19 @@ body {
 }
 .clock-date { font-size: 12px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.1em; }
 
+/* ============ FG：NCM 当前播放条（AMLL 联动，波形上方） ============ */
+.ncm-now {
+  position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  font-size: 13px; color: var(--text-secondary); letter-spacing: 0.06em;
+  white-space: nowrap; max-width: 60%;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.ncm-now .t { color: var(--primary); font-weight: 600; margin-right: 6px; }
+.ncm-now .info { overflow: hidden; text-overflow: ellipsis; }
+.ncm-now .bar { width: 160px; height: 3px; background: var(--bg-subtle); border-radius: 999px; overflow: hidden; }
+.ncm-now .fill { height: 100%; width: 0%; background: var(--primary); border-radius: 999px; transition: width 0.5s linear; }
+
 /* ============ FG：BGM 波形（底部中央） ============ */
 #waveform {
   position: absolute; left: 50%; bottom: 32px;
@@ -287,6 +300,12 @@ body {
   <div class="clock-block">
     <div class="clock-time" id="clockTime">00:00:00</div>
     <div class="clock-date" id="clockDate">----/--/--</div>
+  </div>
+
+  <!-- NCM 当前播放（AMLL 联动） -->
+  <div class="ncm-now" id="ncmNow" hidden>
+    <span><span class="t">♪</span><span class="info" id="ncmInfo">—</span></span>
+    <div class="bar"><div class="fill" id="ncmFill"></div></div>
   </div>
 
   <!-- BGM 波形 -->
@@ -646,6 +665,7 @@ function updateClock() {
     ws.onopen = () => {
       setStatus('on', 'LIVE');
       ws.send(JSON.stringify({ action: 'subscribe', roomId: cfg.room || undefined }));
+      ws.send(JSON.stringify({ action: 'ncm.subscribe' }));
     };
     ws.onmessage = ev => {
       let payload;
@@ -654,6 +674,10 @@ function updateClock() {
         push(payload.user || '匿名用户', payload.text || '', payload.emots, payload.bigEmote);
       } else if (payload.type === 'status') {
         setStatus(payload.connected ? 'on' : 'err', payload.message || 'OFFLINE');
+      } else if (payload.type === 'ncm.playback') {
+        renderNcm(payload);
+      } else if (payload.type === 'ncm.offline') {
+        renderNcm(null);
       }
     };
     ws.onclose = () => {
@@ -664,6 +688,25 @@ function updateClock() {
   };
 
   connect();
+
+  // NCM 播放条渲染（本地进度插值）
+  const ncmEl = $('ncmNow');
+  let ncmState = null;
+  function renderNcm(p) {
+    ncmState = p;
+    if (!p || !p.song || !p.playing) { ncmEl.hidden = true; return; }
+    ncmEl.hidden = false;
+    $('ncmInfo').textContent = `${p.song.name} - ${(p.song.artists || []).join(' / ') || '未知歌手'}`;
+    updateNcmProgress();
+  }
+  function updateNcmProgress() {
+    if (!ncmState || !ncmState.song) return;
+    const total = Number(ncmState.song.duration) || 0;
+    let elapsed = Number(ncmState.progress) || 0;
+    if (ncmState.playing) elapsed += Date.now() - (ncmState.updatedAt || Date.now());
+    $('ncmFill').style.width = total ? `${Math.min(100, (elapsed / total) * 100)}%` : '0%';
+  }
+  setInterval(updateNcmProgress, 1000);
 })();
 
 /* ============================================================

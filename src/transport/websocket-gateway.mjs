@@ -13,9 +13,12 @@ export function createWebSocketGateway({
   maxPayload,
   biliClient,
   songService,
+  amllBridge = null,
 }) {
   const clients = new Set();
   let activeRoomId = '';
+  let ncmSubscribers = 0;
+  let gatewayNcm = null;
   const server = new WebSocketServer({ host, port, maxPayload, clientTracking: false });
   const ready = new Promise((resolve, reject) => {
     server.once('listening', resolve);
@@ -51,6 +54,27 @@ export function createWebSocketGateway({
   });
   biliClient.on('warning', error => console.error('[Bilibili]', error.message));
   songService.on('broadcast', broadcast);
+
+  // AMLL 播放信息：订阅驱动（无订阅者时暂停连接）
+  if (amllBridge) {
+    const refreshNcm = () => {
+      if (ncmSubscribers > 0) {
+        amllBridge.start();
+        if (amllBridge.active) sendNcm(amllBridge.snapshot());
+      } else {
+        amllBridge.stop();
+      }
+    };
+    const sendNcm = payload => {
+      for (const client of clients) {
+        if (client.ncmSubscribed) send(client.socket, payload);
+      }
+    };
+    amllBridge.on('playback', sendNcm);
+    amllBridge.on('offline', () => sendNcm({ type: 'ncm.offline' }));
+    amllBridge.on('online', () => sendNcm(amllBridge.snapshot()));
+    gatewayNcm = { refreshNcm, sendNcm };
+  }
 
   server.on('connection', (socket, request) => {
     const client = {
@@ -103,6 +127,18 @@ export function createWebSocketGateway({
             broadcast({ type: 'status', connected: false, message: 'ERROR' });
           });
         }
+      } else if (payload.action === 'ncm.subscribe') {
+        if (!client.ncmSubscribed) {
+          client.ncmSubscribed = true;
+          ncmSubscribers += 1;
+          gatewayNcm?.refreshNcm();
+        }
+      } else if (payload.action === 'ncm.unsubscribe') {
+        if (client.ncmSubscribed) {
+          client.ncmSubscribed = false;
+          ncmSubscribers -= 1;
+          gatewayNcm?.refreshNcm();
+        }
       } else if (payload.action === 'unsubscribe') {
         client.subscribed = false;
         if (![...clients].some(item => item.subscribed)) {
@@ -129,6 +165,11 @@ export function createWebSocketGateway({
     socket.on('error', error => console.error('[WebSocket] 客户端异常:', error.message));
     socket.on('close', () => {
       clients.delete(client);
+      if (client.ncmSubscribed) {
+        client.ncmSubscribed = false;
+        ncmSubscribers -= 1;
+        gatewayNcm?.refreshNcm();
+      }
       if (client.subscribed && ![...clients].some(item => item.subscribed)) {
         activeRoomId = '';
         biliClient.disconnect();
@@ -146,6 +187,7 @@ export function createWebSocketGateway({
     stop: () => new Promise(resolve => {
       for (const client of clients) client.socket.close(1001, 'Server shutdown');
       biliClient.disconnect();
+      amllBridge?.stop();
       server.close(() => resolve());
     }),
   };

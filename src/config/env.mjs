@@ -66,6 +66,10 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       websocketPassword: env.OBS_WEBSOCKET_PASSWORD?.trim() || '',
       defaultScene: env.OBS_DEFAULT_SCENE?.trim() || '',
     },
+    amll: {
+      enabled: asBoolean(env.NCM_ENABLED, true),
+      wsUrl: env.AMLL_WS_URL?.trim() || 'ws://127.0.0.1:11444',
+    },
     song: {
       enabled: asBoolean(env.SONG_REQUEST_ENABLED, true),
       musicDirectory: path.resolve(projectRoot, env.SONG_MUSIC_DIR?.trim() || 'music'),

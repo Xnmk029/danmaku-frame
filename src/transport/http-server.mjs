@@ -100,6 +100,7 @@ export function createHttpServer({
   healthProvider = () => ({ ok: true }),
   switchSceneHandler = null,
   wsAuthToken = '',
+  coverHandler = null,
 }) {
   const server = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -123,6 +124,12 @@ export function createHttpServer({
 
     if (parsedUrl.pathname === '/healthz') {
       writeJson(res, 200, healthProvider());
+      return;
+    }
+
+    // AMLL 封面缓存端点（data 型封面由服务端持有，前端经此加载，天然免防盗链）
+    if (parsedUrl.pathname === '/api/ncm/cover' && coverHandler) {
+      handleCover(req, res, parsedUrl, coverHandler);
       return;
     }
 
@@ -189,5 +196,23 @@ async function handleSwitchScene(req, res, { switchSceneHandler, wsAuthToken }) 
   }
 }
 
-export { isLoopbackAddress, readJsonBody, writeJson };
+async function handleCover(req, res, parsedUrl, coverHandler) {
+  const id = parsedUrl.searchParams.get('id') || '';
+  if (!id) {
+    writeJson(res, 400, { ok: false, error: '缺少 id 参数' });
+    return;
+  }
+  const cover = await coverHandler(id);
+  if (!cover) {
+    writeJson(res, 404, { ok: false, error: '封面不存在或已过期' });
+    return;
+  }
+  res.writeHead(200, {
+    'Content-Type': cover.mime || 'image/jpeg',
+    'Cache-Control': 'public, max-age=3600',
+  });
+  res.end(Buffer.from(cover.data, 'base64'));
+}
+
+export { isLoopbackAddress, readJsonBody, writeJson, handleCover };
 export { isPublicStaticPath, resolveStaticPath };

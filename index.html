@@ -452,6 +452,23 @@
       object-fit: contain;
     }
 
+    /* === NCM 当前播放行（AMLL 联动，底部 ticker 上方） === */
+    .ncm-now {
+      position: absolute;
+      bottom: 68px;
+      left: 240px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: #9098a8;
+      z-index: 12;
+      pointer-events: none;
+      white-space: nowrap;
+      max-width: 46%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ncm-now .t { color: #d4ff00; text-shadow: 0 0 8px rgba(212, 255, 0, 0.35); }
+
     /* === DEDSEC BOTTOM TICKER STATUS BAR (Exact Layout Matching Image 2) === */
     .bottom-ticker-bar {
       position: absolute;
@@ -1112,6 +1129,9 @@
         <div class="danmaku-feed" id="danmakuFeed"></div>
       </div>
 
+      <!-- NCM 当前播放（AMLL 联动） -->
+      <div class="ncm-now" id="ncmNow" hidden></div>
+
       <!-- Watch Dogs DedSec Bottom Ticker Bar (Image 2 Layout) -->
       <div class="bottom-ticker-bar" id="bottomTickerBar">
         <div class="ticker-section ticker-left">
@@ -1381,6 +1401,7 @@
           if (this._roomId) {
             this.ws.send(JSON.stringify({ action: 'subscribe', roomId: this._roomId }));
           }
+          this.ws.send(JSON.stringify({ action: 'ncm.subscribe' }));
           this.cb.status(true, `ROOM ${this._roomId || 'READY'}`);
         };
 
@@ -1391,6 +1412,10 @@
               this.cb.status(d.connected, d.message);
             } else if (d.type === 'popularity') {
               this.cb.popularity(d.value);
+            } else if (d.type === 'ncm.playback') {
+              if (this.cb.ncm) this.cb.ncm(d);
+            } else if (d.type === 'ncm.offline') {
+              if (this.cb.ncmOffline) this.cb.ncmOffline();
             } else if (d.text) {
               this.cb.danmaku(d);
             }
@@ -1592,8 +1617,17 @@
         const popStr = val > 10000 ? (val / 10000).toFixed(1) + '万' : val;
         statusText.textContent = `ROOM ${parseRoomId(roomInput.value)} (🔥${popStr})`;
       },
-      danmaku(data) { addDanmaku(data); }
+      danmaku(data) { addDanmaku(data); },
+      ncm(payload) { renderNcm(payload); },
+      ncmOffline() { renderNcm(null); }
     });
+
+    const ncmEl = document.getElementById('ncmNow');
+    function renderNcm(p) {
+      if (!p || !p.song || !p.playing) { ncmEl.hidden = true; return; }
+      ncmEl.hidden = false;
+      ncmEl.innerHTML = `<span class="t">♪</span> ${p.song.name} - ${(p.song.artists || []).join(' / ') || '未知歌手'}`;
+    }
 
     function getUserClass(username) {
       if (!username) return 'user-mixed';

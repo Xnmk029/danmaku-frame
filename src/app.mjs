@@ -11,6 +11,7 @@ import { LocalMusicProvider } from './music/providers/local-provider.mjs';
 import { DirectUrlProvider } from './music/providers/direct-url-provider.mjs';
 import { WindowsMediaController } from './platform/windows-media-controller.mjs';
 import { ObsProxy } from './obs/obs-proxy.mjs';
+import { AmllBridge } from './ncm/amll-bridge.mjs';
 
 const sourceDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(sourceDirectory, '..');
@@ -39,6 +40,7 @@ export function createApplication(runtimeEnv = process.env) {
     url: config.obs.websocketUrl,
     password: config.obs.websocketPassword,
   });
+  const amllBridge = config.amll.enabled ? new AmllBridge({ url: config.amll.wsUrl }) : null;
   songService.on('media-key', action => {
     try {
       mediaController.press(action);
@@ -54,6 +56,7 @@ export function createApplication(runtimeEnv = process.env) {
     port: config.httpPort,
     wsAuthToken: config.wsAuthToken,
     switchSceneHandler: async ({ scene }) => obsProxy.switchScene(scene || config.obs.defaultScene),
+    coverHandler: amllBridge ? async id => amllBridge.getCoverData(id) : null,
     healthProvider: () => ({
       ok: true,
       service: 'danmaku-frame',
@@ -79,6 +82,7 @@ export function createApplication(runtimeEnv = process.env) {
           maxPayload: config.maxWsMessageBytes,
           biliClient,
           songService,
+          amllBridge,
         });
         await gateway.ready;
       } catch (error) {
@@ -89,6 +93,7 @@ export function createApplication(runtimeEnv = process.env) {
       console.log(`🚀 Danmaku-Frame: http://${config.host}:${config.httpPort}`);
       console.log(`📡 WebSocket: ws://${config.host}:${config.wsPort}`);
       console.log(`🎵 点歌播放器: http://${config.host}:${config.httpPort}/public/song-player/`);
+      console.log(`🎧 AMLL 播放信息: ${config.amll.enabled ? config.amll.wsUrl : '已禁用'}`);
       console.log(`🔐 B站鉴权: ${config.bilibili.cookie ? '服务端登录态' : '匿名'}`);
       console.log('====================================================');
     },

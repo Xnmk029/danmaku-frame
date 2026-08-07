@@ -28,6 +28,11 @@
   - 阈限空间式开场：三层 Z 轴（背景鸽子群 / 中央倒计时 / 前景弹幕+粒子），异步循环防重复。
   - 倒计时结束白闪释放，可联动 OBS WebSocket 自动切换正片场景。
 
+- **AMLL 播放信息联动（网易云实时歌名）**
+  - 订阅 AMLL WebSocket 广播（`ws://127.0.0.1:11444`，协议 V2），实时显示当前播放歌曲。
+  - 三载体：独立 OBS 源（封面+歌名+进度条）、弹幕边框底部一行、待机页底部播放条。
+  - 封面 Base64 由服务端缓存（`/api/ncm/cover`），无防盗链问题；AMLL 未运行自动隐藏。
+
 - **弹幕点歌姬**
   - 支持“点歌 歌名”、取消点歌、查看歌单和主播切歌等命令。
   - 内置排队、防重复、用户配额、冷却、权限控制和播放状态恢复。
@@ -46,6 +51,7 @@ danmaku-frame/
 ├── server.mjs            # 轻量启动入口
 ├── src/                  # 服务端模块：B站连接、协议、点歌、HTTP/WS
 ├── public/song-player/   # OBS 点歌播放器与管理页面
+├── public/ncm-nowplaying/ # OBS 网易云正在播放卡片（AMLL 联动）
 ├── music/                # 用户提供的合法本地音频（默认不纳入 Git）
 ├── data/                 # 点歌运行状态（默认不纳入 Git）
 ├── tests/                # Node.js 单元测试
@@ -154,7 +160,22 @@ OBS 浏览器源示例：
 http://localhost:7788/standby.html?duration=120&room=30068664&bgm=music/standby.mp3&obsScene=正片
 ```
 
-> OBS 联动依赖根目录 `.env` 的 `OBS_WEBSOCKET_URL` / `OBS_WEBSOCKET_PASSWORD`（OBS 需开启 WebSocket 服务，默认端口 4455）。场景名也可在 `.env` 中通过 `OBS_DEFAULT_SCENE` 统一配置，页面无需再带 `obsScene` 参数。未配置时归零仅做页面内转场，不报错。
+### AMLL 播放信息（网易云正在播放）
+
+需在网易云客户端安装 AMLL 相关插件并开启 WebSocket 广播（默认端口 `11444`）。服务端自动连接，无需额外配置；`danmaku-frame` 根目录 `.env` 可调整：
+
+```env
+NCM_ENABLED=true
+AMLL_WS_URL=ws://127.0.0.1:11444
+```
+
+独立 OBS 浏览器源（封面 + 歌名 + 歌手 + 进度条）：
+
+```text
+http://127.0.0.1:7788/public/ncm-nowplaying/nowplaying.html
+```
+
+弹幕边框（index.html）底部与待机页（standby.html）底部会自动显示一行 `♪ 歌名 - 歌手`，AMLL 未运行或未播放时自动隐藏。
 
 ---
 
