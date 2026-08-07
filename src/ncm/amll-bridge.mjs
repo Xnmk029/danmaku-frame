@@ -6,6 +6,7 @@
  */
 import { WebSocket } from 'ws';
 import { PlaybackAggregator } from './amll-core.mjs';
+import { parseV1Body, v1ToStateUpdate } from './amll-v1.mjs';
 
 const RECONNECT_DELAY_MS = 3000;
 
@@ -71,8 +72,13 @@ export class AmllBridge extends PlaybackAggregator {
       try {
         const payload = JSON.parse(data.toString());
         if (payload?.type === 'state') this.handleStateUpdate(payload.value);
+        else if (payload?.type === 'ping') socket.send(JSON.stringify({ type: 'pong' }));
       } catch {
-        // 非 JSON（二进制扩展通道）忽略
+        // V1 二进制协议
+        const v1 = parseV1Body(Buffer.isBuffer(data) ? data : Buffer.from(data));
+        const update = v1ToStateUpdate(v1);
+        if (update) this.handleStateUpdate(update);
+        else if (v1.type === 'ping') socket.send(Buffer.from([1, 0]));
       }
     });
 

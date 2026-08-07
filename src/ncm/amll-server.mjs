@@ -11,6 +11,7 @@
  */
 import { WebSocketServer, WebSocket } from 'ws';
 import { PlaybackAggregator } from './amll-core.mjs';
+import { parseV1Body, v1ToStateUpdate } from './amll-v1.mjs';
 
 export class AmllServer extends PlaybackAggregator {
   constructor({ port = 11444, host = '127.0.0.1' } = {}) {
@@ -38,9 +39,11 @@ export class AmllServer extends PlaybackAggregator {
 
     this.server.on('connection', socket => {
       this.connections.add(socket);
-      socket.on('message', data => this.handleRawMessage(data));
+      console.log(`[AMLL] 新连接（当前 ${this.connections.size} 个）`);
+      socket.on('message', data => this.handleRawMessage(data, socket));
       socket.on('close', () => {
         this.connections.delete(socket);
+        console.log(`[AMLL] 连接断开（剩余 ${this.connections.size} 个）`);
         if (this.connections.size === 0) this.emit('offline');
       });
       socket.on('error', error => this.emit('warning', new Error(`AMLL 连接异常: ${error.message}`)));
@@ -55,16 +58,45 @@ export class AmllServer extends PlaybackAggregator {
     return this.ready;
   }
 
-  handleRawMessage(data) {
-    let payload;
-    try {
-      payload = JSON.parse(data.toString());
-    } catch {
-      return; // 二进制扩展通道等非 JSON 消息忽略
+  handleRawMessage(data, socket) {
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+
+    // 先尝试 V2 JSON
+    let payload = null;
+    try { payload = JSON.parse(buf.toString()); } catch { /* 非 JSON */ }
+    if (payload && typeof payload === 'object') {
+      if (payload.type === 'state') {
+        const v = payload.value;
+        const summary = v?.update === 'setMusic'
+          ? `setMusic name=${v.musicName}`
+          : v?.update === 'setCover' ? `setCover ${v.source}`
+            : String(v?.update || 'unknown');
+        console.log(`[AMLL] 收到 state: ${summary}`);
+        this.handleStateUpdate(payload.value);
+      } else if (payload.type === 'initialize') {
+        console.log('[AMLL] 客户端已初始化连接');
+      } else if (payload.type === 'ping') {
+        socket?.send(JSON.stringify({ type: 'pong' }));
+      } else {
+        console.log(`[AMLL] 收到其他 JSON: ${buf.toString().slice(0, 100)}`);
+      }
+      return;
     }
-    // 协议：连接方发送 initialize 后持续推送 state
-    if (payload?.type === 'state') {
-      this.handleStateUpdate(payload.value);
+
+    // V1 二进制协议（AMLL-WS-Connector 旧版：SetMusicInfo/封面/进度/暂停恢复 + 高频音频）
+    const v1 = parseV1Body(buf);
+    const stateUpdate = v1ToStateUpdate(v1);
+    if (stateUpdate) {
+      const summary = stateUpdate.update === 'setMusic'
+        ? `setMusic name=${stateUpdate.musicName}`
+        : stateUpdate.update === 'setCover' ? `setCover ${stateUpdate.source}`
+          : String(stateUpdate.update);
+      console.log(`[AMLL] 收到 V1: ${summary}`);
+      this.handleStateUpdate(stateUpdate);
+    } else if (v1.type === 'ping') {
+      socket?.send(Buffer.from([1, 0])); // Pong magic=1
+    } else if (v1.type === 'unknown' && buf.length > 2) {
+      // 高频音频/歌词等按需记录（debug 用）
     }
   }
 
