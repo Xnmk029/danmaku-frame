@@ -452,22 +452,58 @@
       object-fit: contain;
     }
 
-    /* === NCM 当前播放行（AMLL 联动，底部 ticker 上方） === */
-    .ncm-now {
+    /* === NCM 播放卡片（AMLL 联动，弹幕区域下方 160px，DS 变量适配亮暗主题） === */
+    .ncm-card {
       position: absolute;
-      bottom: 68px;
-      left: 240px;
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      color: #9098a8;
+      left: 14px;
+      bottom: 176px;
+      width: var(--danmaku-width);
+      height: 160px;
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--ds-sidebar) 92%, transparent);
+      border: 1px solid var(--ds-border);
+      border-radius: 14px;
+      box-shadow: var(--ds-shadow);
+      backdrop-filter: blur(16px);
       z-index: 12;
       pointer-events: none;
-      white-space: nowrap;
-      max-width: 46%;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      box-sizing: border-box;
     }
-    .ncm-now .t { color: #d4ff00; text-shadow: 0 0 8px rgba(212, 255, 0, 0.35); }
+    .ncm-card[hidden] { display: none; }
+    .ncm-cover {
+      width: 88px; height: 88px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: var(--ds-layer-1);
+      align-self: center;
+      flex-shrink: 0;
+    }
+    .ncm-cover.hidden { display: none; }
+    .ncm-body {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; justify-content: center; gap: 5px;
+    }
+    .ncm-top { display: flex; align-items: baseline; gap: 6px; }
+    .ncm-title {
+      flex: 1; min-width: 0;
+      font-size: 13px; font-weight: 600; color: var(--ds-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ncm-led { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ncm-led.playing { background: #34c759; box-shadow: 0 0 8px rgba(52, 199, 89, 0.6); }
+    .ncm-led.paused  { background: #ff9f0a; box-shadow: 0 0 8px rgba(255, 159, 10, 0.6); }
+    .ncm-artist {
+      font-size: 11px; color: var(--ds-text-secondary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ncm-bar { height: 3px; background: var(--ds-layer-1); border-radius: 999px; overflow: hidden; }
+    .ncm-fill { height: 100%; width: 0%; background: var(--ds-primary); border-radius: 999px; transition: width 0.5s linear; }
+    .ncm-time {
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: var(--ds-text-tertiary); font-variant-numeric: tabular-nums;
+    }
 
     /* === DEDSEC BOTTOM TICKER STATUS BAR (Exact Layout Matching Image 2) === */
     .bottom-ticker-bar {
@@ -1129,8 +1165,19 @@
         <div class="danmaku-feed" id="danmakuFeed"></div>
       </div>
 
-      <!-- NCM 当前播放（AMLL 联动） -->
-      <div class="ncm-now" id="ncmNow" hidden></div>
+      <!-- NCM 播放卡片（AMLL 联动，弹幕区域下方） -->
+      <div class="ncm-card" id="ncmNow" hidden>
+        <img class="ncm-cover" id="ncmCover" alt="">
+        <div class="ncm-body">
+          <div class="ncm-top">
+            <span class="ncm-title" id="ncmTitle">—</span>
+            <span class="ncm-led" id="ncmLed"></span>
+          </div>
+          <div class="ncm-artist" id="ncmArtist">—</div>
+          <div class="ncm-bar"><div class="ncm-fill" id="ncmFill"></div></div>
+          <div class="ncm-time"><span id="ncmCur">00:00</span><span id="ncmDur">00:00</span></div>
+        </div>
+      </div>
 
       <!-- Watch Dogs DedSec Bottom Ticker Bar (Image 2 Layout) -->
       <div class="bottom-ticker-bar" id="bottomTickerBar">
@@ -1623,11 +1670,47 @@
     });
 
     const ncmEl = document.getElementById('ncmNow');
+    let ncmState = null;
+    const ncmTitle = document.getElementById('ncmTitle');
+    const ncmArtist = document.getElementById('ncmArtist');
+    const ncmCover = document.getElementById('ncmCover');
+    const ncmCur = document.getElementById('ncmCur');
+    const ncmDur = document.getElementById('ncmDur');
+    const ncmFill = document.getElementById('ncmFill');
+    const ncmLed = document.getElementById('ncmLed');
+    const fmtNcm = ms => {
+      const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+      return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    };
     function renderNcm(p) {
+      ncmState = p;
       if (!p || !p.song || !p.playing) { ncmEl.hidden = true; return; }
       ncmEl.hidden = false;
-      ncmEl.innerHTML = `<span class="t">♪</span> ${p.song.name} - ${(p.song.artists || []).join(' / ') || '未知歌手'}`;
+      const name = p.song.name || '未知歌曲';
+      const artist = (p.song.artists || []).join(' / ') || '未知歌手';
+      if (ncmTitle.textContent !== name) ncmTitle.textContent = name;
+      if (ncmArtist.textContent !== artist) ncmArtist.textContent = artist;
+      if (p.cover) {
+        const url = p.cover.kind === 'uri'
+          ? p.cover.url
+          : `/api/ncm/cover?id=${encodeURIComponent(p.cover.id)}`;
+        if (ncmCover.src !== url) { ncmCover.src = url; ncmCover.classList.remove('hidden'); }
+      } else {
+        ncmCover.classList.add('hidden');
+      }
+      updateNcmProgress();
     }
+    function updateNcmProgress() {
+      if (!ncmState || !ncmState.song) return;
+      const total = Number(ncmState.song.duration) || 0;
+      let elapsed = Number(ncmState.progress) || 0;
+      if (ncmState.playing) elapsed += Date.now() - (ncmState.updatedAt || Date.now());
+      ncmCur.textContent = fmtNcm(elapsed);
+      ncmDur.textContent = fmtNcm(total);
+      ncmFill.style.width = total ? `${Math.min(100, (elapsed / total) * 100)}%` : '0%';
+      ncmLed.className = 'ncm-led ' + (ncmState.playing ? 'playing' : 'paused');
+    }
+    setInterval(updateNcmProgress, 1000);
 
     function getUserClass(username) {
       if (!username) return 'user-mixed';
