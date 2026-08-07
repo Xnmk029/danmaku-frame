@@ -1699,11 +1699,16 @@
     function applyMarquee(el, track, text) {
       if (track.textContent === text) return;
       track.textContent = text;
+      // 测量真实文本宽度：排除 marquee 定位用的 padding-left:100%
+      const prevPad = track.style.paddingLeft;
+      track.style.paddingLeft = '0';
+      const overflows = track.scrollWidth > el.clientWidth + 2;
+      track.style.paddingLeft = prevPad;
       // 内容变化时强制重启动画
       track.style.animation = 'none';
       void track.offsetWidth;
       track.style.animation = '';
-      el.classList.toggle('marquee-on', track.scrollWidth > el.clientWidth + 2);
+      el.classList.toggle('marquee-on', overflows);
     }
     function renderNcm(p) {
       ncmState = p;
