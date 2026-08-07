@@ -52,11 +52,14 @@ body { font-family: var(--font); color: var(--text-primary); -webkit-font-smooth
 .title .mt, .artist .mt {
   display: inline-block;
   white-space: nowrap;
-  padding-left: 100%;
   animation: cardMarquee 10s linear infinite;
   animation-play-state: paused;
+  /* 默认无 padding：静态显示在容器内 */
 }
-.title.marquee-on .mt, .artist.marquee-on .mt { animation-play-state: running; }
+.title.marquee-on .mt, .artist.marquee-on .mt {
+  padding-left: 100%; /* 仅滚动时：起点位于右缘外 */
+  animation-play-state: running;
+}
 @keyframes cardMarquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-100%); }
@@ -107,15 +110,15 @@ function fmt(ms) {
 function applyMarquee(el, track, text) {
   if (track.textContent === text) return;
   track.textContent = text;
-  // 测量真实文本宽度：排除 marquee 定位用的 padding-left:100%
+  // 测量真实文本宽度：临时去掉内联 padding（marquee 定位的 padding-left 由 .marquee-on 类控制）
   const prevPad = track.style.paddingLeft;
   track.style.paddingLeft = '0';
   const overflows = track.scrollWidth > el.clientWidth + 2;
   track.style.paddingLeft = prevPad;
+  el.classList.toggle('marquee-on', overflows);
   track.style.animation = 'none';
   void track.offsetWidth;
   track.style.animation = '';
-  el.classList.toggle('marquee-on', overflows);
 }
 
 function render() {
