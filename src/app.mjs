@@ -12,6 +12,7 @@ import { DirectUrlProvider } from './music/providers/direct-url-provider.mjs';
 import { WindowsMediaController } from './platform/windows-media-controller.mjs';
 import { ObsProxy } from './obs/obs-proxy.mjs';
 import { AmllBridge } from './ncm/amll-bridge.mjs';
+import { AmllServer } from './ncm/amll-server.mjs';
 
 const sourceDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(sourceDirectory, '..');
@@ -40,7 +41,11 @@ export function createApplication(runtimeEnv = process.env) {
     url: config.obs.websocketUrl,
     password: config.obs.websocketPassword,
   });
-  const amllBridge = config.amll.enabled ? new AmllBridge({ url: config.amll.wsUrl }) : null;
+  const amllBridge = config.amll.enabled
+    ? (config.amll.mode === 'client'
+        ? new AmllBridge({ url: config.amll.wsUrl })
+        : new AmllServer({ port: config.amll.listenPort }))
+    : null;
   songService.on('media-key', action => {
     try {
       mediaController.press(action);

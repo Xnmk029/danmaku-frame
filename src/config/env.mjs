@@ -68,7 +68,10 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
     },
     amll: {
       enabled: asBoolean(env.NCM_ENABLED, true),
+      // server: 监听端口接收 AMLL-WS-Connector 推送（推荐）；client: 连接 AMLL Player
+      mode: env.AMLL_MODE?.trim() === 'client' ? 'client' : 'server',
       wsUrl: env.AMLL_WS_URL?.trim() || 'ws://127.0.0.1:11444',
+      listenPort: asInteger(env.AMLL_LISTEN_PORT, 11444, { min: 1024, max: 65535 }),
     },
     song: {
       enabled: asBoolean(env.SONG_REQUEST_ENABLED, true),
