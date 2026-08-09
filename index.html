@@ -1220,7 +1220,7 @@
   <div class="ctrl-bar" id="ctrlBar">
     <input type="text" id="roomInput" value="https://live.bilibili.com/30068664?visit_id=7npfj9a19us0" placeholder="直播间号/链接">
     <button class="ctrl-btn" id="connectBtn">CONNECT</button>
-    <button class="ctrl-btn" id="hotRoomBtn" title="官方热播6号">🔥官方6号</button>
+    <button class="ctrl-btn" id="hotRoomBtn" title="官方热播6号">官方6号</button>
     <button class="ctrl-btn" title="登录凭证仅从服务端 .env 读取" disabled>AUTH: SERVER</button>
     <button class="ctrl-btn" id="testBtn">TEST</button>
     <button class="ctrl-btn" id="clearBtn">CLR</button>
@@ -1677,7 +1677,7 @@
       },
       popularity(val) {
         const popStr = val > 10000 ? (val / 10000).toFixed(1) + '万' : val;
-        statusText.textContent = `ROOM ${parseRoomId(roomInput.value)} (🔥${popStr})`;
+        statusText.textContent = `ROOM ${parseRoomId(roomInput.value)} (热度${popStr})`;
       },
       danmaku(data) { addDanmaku(data); },
       ncm(payload) { renderNcm(payload); },

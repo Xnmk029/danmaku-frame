@@ -95,11 +95,11 @@ export function createApplication(runtimeEnv = process.env) {
         throw error;
       }
       console.log('====================================================');
-      console.log(`🚀 Danmaku-Frame: http://${config.host}:${config.httpPort}`);
-      console.log(`📡 WebSocket: ws://${config.host}:${config.wsPort}`);
-      console.log(`🎵 点歌播放器: http://${config.host}:${config.httpPort}/public/song-player/`);
-      console.log(`🎧 AMLL 播放信息: ${config.amll.enabled ? config.amll.wsUrl : '已禁用'}`);
-      console.log(`🔐 B站鉴权: ${config.bilibili.cookie ? '服务端登录态' : '匿名'}`);
+      console.log(`[DanmakuFrame] HTTP: http://${config.host}:${config.httpPort}`);
+      console.log(`[WebSocket] Relay: ws://${config.host}:${config.wsPort}`);
+      console.log(`[SongPlayer] 点歌播放器: http://${config.host}:${config.httpPort}/public/song-player/`);
+      console.log(`[AMLL] 播放信息: ${config.amll.enabled ? config.amll.wsUrl : '已禁用'}`);
+      console.log(`[BilibiliAuth] B站鉴权: ${config.bilibili.cookie ? '服务端登录态' : '匿名'}`);
       console.log('====================================================');
     },
     async stop() {
