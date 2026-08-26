@@ -1,0 +1,33 @@
+// Preload: 通过 contextBridge 暴露安全的 IPC API
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('lc', {
+  init: () => ipcRenderer.invoke('app:init'),
+  start: (id) => ipcRenderer.invoke('svc:start', id),
+  stop: (id) => ipcRenderer.invoke('svc:stop', id),
+  restart: (id) => ipcRenderer.invoke('svc:restart', id),
+  clearLog: (id) => ipcRenderer.invoke('svc:clearLog', id),
+  streamStart: () => ipcRenderer.invoke('stream:start'),
+  streamStop: () => ipcRenderer.invoke('stream:stop'),
+  setTheme: (theme) => ipcRenderer.invoke('config:setTheme', theme),
+  toggleAutoStart: () => ipcRenderer.invoke('config:toggleAutoStart'),
+  setCloseToTray: (v) => ipcRenderer.invoke('config:setCloseToTray', v),
+  setLogsExpanded: (v) => ipcRenderer.invoke('config:setLogsExpanded', v),
+  setSelected: (id) => ipcRenderer.invoke('config:setSelected', id),
+  setStandbyDuration: (sec) => ipcRenderer.invoke('standby:setDuration', sec),
+  setStandbyMode: (mode) => ipcRenderer.invoke('standby:setMode', mode),
+  setStandbyScene: (scene) => ipcRenderer.invoke('standby:setScene', scene),
+  applyStandbyToObs: () => ipcRenderer.invoke('standby:applyToObs'),
+  setFace: (face) => ipcRenderer.invoke('face:set', face),
+  listCameras: () => ipcRenderer.invoke('face:listCameras'),
+  showL2DPanel: () => ipcRenderer.invoke('panel:showL2D'),
+  setObs: (obs) => ipcRenderer.invoke('config:setObs', obs),
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+  winMinimize: () => ipcRenderer.invoke('win:minimize'),
+  winHide: () => ipcRenderer.invoke('win:hide'),
+  winClose: () => ipcRenderer.invoke('win:close'),
+  onState: (cb) => ipcRenderer.on('svc:state', (_e, p) => cb(p)),
+  onLog: (cb) => ipcRenderer.on('svc:log', (_e, p) => cb(p)),
+  onStreamStep: (cb) => ipcRenderer.on('stream:step', (_e, p) => cb(p)),
+  onStreamFinished: (cb) => ipcRenderer.on('stream:finished', (_e, p) => cb(p)),
+});

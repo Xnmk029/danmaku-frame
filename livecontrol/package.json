@@ -1,0 +1,71 @@
+{
+  "name": "livecontrol",
+  "version": "2.1.0",
+  "description": "直播控制台 - MD3 (Google Material Web Components) 服务管理面板，含弹幕朗读（Edge TTS）调音面板（音色/语速/音调/音量/试听）",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "esbuild renderer/renderer.js --bundle --format=esm --outfile=renderer/bundle.js --log-level=warning",
+    "selftest": "electron . --selftest",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "author": "LiveControl",
+  "build": {
+    "appId": "com.livecontrol.app",
+    "productName": "LiveControl",
+    "directories": {
+      "output": "dist-v2",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "services.js",
+      "health.js",
+      "orchestrator.js",
+      "config.js",
+      "scripts/**",
+      "renderer/**",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "直播控制台"
+    },
+    "portable": {
+      "artifactName": "LiveControl-${version}-portable.exe"
+    }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1"
+  },
+  "dependencies": {
+    "@material/web": "^2.5.0",
+    "material-symbols": "^0.28.0",
+    "obs-websocket-js": "^5.0.8"
+  }
+}

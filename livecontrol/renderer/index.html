@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' http://127.0.0.1:7788 http://localhost:7788">
+  <title>直播控制台</title>
+  <link rel="stylesheet" href="../node_modules/material-symbols/index.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ================= 自定义标题栏 ================= -->
+  <header class="titlebar">
+    <div class="titlebar-left">
+      <md-icon class="brand-icon">tune</md-icon>
+      <span class="brand-name">直播控制台</span>
+    </div>
+    <div class="titlebar-right">
+      <span id="streamStatus" class="stream-status"></span>
+      <md-icon-button id="btnTheme" title="切换主题"><md-icon>dark_mode</md-icon></md-icon-button>
+      <md-icon-button id="btnMinimize" title="最小化到托盘"><md-icon>remove</md-icon></md-icon-button>
+      <md-icon-button id="btnClose" title="隐藏到托盘"><md-icon>close</md-icon></md-icon-button>
+    </div>
+  </header>
+
+  <!-- ================= 顶部操作区 ================= -->
+  <section class="toolbar">
+    <md-filled-button id="btnStreamStart">
+      <md-icon slot="icon">play_arrow</md-icon>
+      一键开播
+    </md-filled-button>
+    <md-filled-tonal-button id="btnStreamStop" class="danger-tonal">
+      <md-icon slot="icon">stop</md-icon>
+      一键下播
+    </md-filled-tonal-button>
+    <span class="autostart">
+      <span>开机自启</span>
+      <md-switch id="swAutoStart"></md-switch>
+    </span>
+  </section>
+
+  <!-- ================= 待机页倒计时快速调整 ================= -->
+  <section class="standby-bar">
+    <div class="standby-head">
+      <span class="standby-title">
+        <md-icon class="standby-icon">timer</md-icon>
+        待机页倒计时
+      </span>
+      <span id="standbyUrl" class="standby-url" title="OBS 浏览器源地址"></span>
+      <span class="standby-actions">
+        <md-text-button id="btnStandbyCopy">
+          <md-icon slot="icon">content_copy</md-icon>
+          复制 URL
+        </md-text-button>
+        <md-text-button id="btnStandbyApply">
+          <md-icon slot="icon">sync</md-icon>
+          应用到 OBS
+        </md-text-button>
+        <md-text-button id="btnStandbyPreview">
+          <md-icon slot="icon">open_in_new</md-icon>
+          预览
+        </md-text-button>
+      </span>
+    </div>
+    <div class="standby-controls">
+      <span class="standby-chips" id="standbyChips">
+        <md-text-button data-sec="30">30 秒</md-text-button>
+        <md-text-button data-sec="60">1 分</md-text-button>
+        <md-text-button data-sec="120">2 分</md-text-button>
+        <md-text-button data-sec="300">5 分</md-text-button>
+        <md-text-button data-sec="600">10 分</md-text-button>
+        <md-text-button data-sec="1800">30 分</md-text-button>
+      </span>
+      <span class="standby-field">
+        <md-outlined-text-field id="standbySeconds" type="number" min="10" max="3600"
+                                label="秒" value="120" class="seconds-field"></md-outlined-text-field>
+        <md-text-button id="btnStandbyApply">应用</md-text-button>
+      </span>
+      <span class="standby-mode">
+        <md-chip-set id="standbyModeSet">
+          <md-filter-chip data-mode="countdown" selected label="倒计时"></md-filter-chip>
+          <md-filter-chip data-mode="clock" label="时钟"></md-filter-chip>
+        </md-chip-set>
+      </span>
+    </div>
+  </section>
+
+  <!-- ================= 弹幕朗读控制条（Edge TTS） ================= -->
+  <section class="tts-bar" id="ttsBar">
+    <div class="tts-head">
+      <span class="tts-title">
+        <md-icon class="tts-icon">record_voice_over</md-icon>
+        弹幕朗读
+        <span id="ttsOnline" class="tts-online offline">OFFLINE</span>
+      </span>
+      <span class="tts-actions">
+        <md-text-button id="btnTtsPlay">
+          <md-icon slot="icon">play_arrow</md-icon>
+          试听
+        </md-text-button>
+        <md-text-button id="btnTtsSkip">
+          <md-icon slot="icon">skip_next</md-icon>
+          跳过
+        </md-text-button>
+        <span class="tts-switch-label">朗读</span>
+        <md-switch id="swTts"></md-switch>
+      </span>
+    </div>
+    <div class="tts-controls">
+      <div class="tts-field tts-voice-field">
+        <span class="tts-label">音色</span>
+        <md-outlined-select id="ttsVoice" class="tts-select"></md-outlined-select>
+      </div>
+      <div class="tts-field">
+        <span class="tts-label">语速 <b id="ttsRateVal">+0%</b></span>
+        <md-slider id="ttsRate" min="-50" max="100" step="5" value="0" ticks></md-slider>
+      </div>
+      <div class="tts-field">
+        <span class="tts-label">音调 <b id="ttsPitchVal">+0Hz</b></span>
+        <md-slider id="ttsPitch" min="-50" max="50" step="5" value="0" ticks></md-slider>
+      </div>
+      <div class="tts-field">
+        <span class="tts-label">音量 <b id="ttsVolVal">100</b></span>
+        <md-slider id="ttsVol" min="0" max="100" step="5" value="100" ticks></md-slider>
+      </div>
+    </div>
+    <div class="tts-status" id="ttsStatus">未在朗读</div>
+    <div class="tts-recent" id="ttsRecent"></div>
+  </section>
+
+  <!-- ================= 服务列表（MD3 List） ================= -->
+  <main class="list-scroll">
+    <md-list id="serviceList" class="service-list"></md-list>
+  </main>
+
+  <!-- ================= 日志面板 ================= -->
+  <section id="logPanel" class="log-panel">
+    <div class="log-header">
+      <span id="logTitle" class="log-title">日志</span>
+      <span class="log-actions">
+        <md-text-button id="btnClearLog">清空</md-text-button>
+        <md-text-button id="btnToggleLog">收起</md-text-button>
+      </span>
+    </div>
+    <div id="logBody" class="log-body"></div>
+  </section>
+
+  <!-- ================= 面捕设置弹窗 ================= -->
+  <md-dialog id="faceDialog">
+    <div slot="headline">面捕设置</div>
+    <form slot="content" id="faceForm" method="dialog">
+      <div class="face-row">
+        <label>摄像头</label>
+        <md-outlined-select id="faceCapture" class="face-select">
+          <md-select-option value="0">摄像头 0</md-select-option>
+        </md-outlined-select>
+        <md-text-button id="btnScanCam">探测</md-text-button>
+      </div>
+      <div class="face-row">
+        <label>追踪模型</label>
+        <md-outlined-select id="faceModel" class="face-select">
+          <md-select-option value="0">0 · 最快</md-select-option>
+          <md-select-option value="1">1</md-select-option>
+          <md-select-option value="2">2</md-select-option>
+          <md-select-option value="3" selected>3 · 推荐</md-select-option>
+          <md-select-option value="4">4 · 最准</md-select-option>
+        </md-outlined-select>
+      </div>
+      <div class="face-row">
+        <label>帧率 (FPS)</label>
+        <md-outlined-text-field id="faceFps" type="number" min="1" max="60" value="24" class="face-fps"></md-outlined-text-field>
+      </div>
+      <div class="face-row">
+        <label>预览窗口</label>
+        <md-switch id="faceVisualize" selected></md-switch>
+        <span class="face-hint">关闭 = 无窗口模式（仅推送追踪数据）</span>
+      </div>
+    </form>
+    <div slot="actions">
+      <md-text-button id="btnFaceCancel">取消</md-text-button>
+      <md-text-button id="btnFaceSave">保存</md-text-button>
+    </div>
+  </md-dialog>
+
+  <script type="module" src="bundle.js"></script>
+</body>
+</html>
