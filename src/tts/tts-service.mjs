@@ -443,9 +443,19 @@ export class DanmakuTtsService extends EventEmitter {
   }
 
   /**
-   * 音色-等级绑定：舰长 → voiceGuard；等级区间命中 → 区间音色；否则 null（全局默认）。
+   * 音色绑定（优先级从高到低）：
+   * 1. 用户级预设（UID 或原始用户名匹配）
+   * 2. 舰长（guard≥1）→ voiceGuard
+   * 3. 粉丝牌等级区间命中
+   * 4. null（全局默认）
    */
   resolveVoice(event) {
+    const uid = String(event?.uid || '');
+    const name = String(event?.rawUser || event?.user || '');
+    for (const preset of this.config.voiceUsers || []) {
+      if (preset.uid && preset.uid === uid) return preset.voice;
+      if (preset.name && preset.name === name) return preset.voice;
+    }
     const guard = Number(event?.guard || 0);
     if (guard >= 1 && this.config.voiceGuard) return this.config.voiceGuard;
     const lv = Number(event?.medal?.lv || 0);

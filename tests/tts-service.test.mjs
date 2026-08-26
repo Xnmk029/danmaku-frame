@@ -59,6 +59,30 @@ test('朗读前缀：舰长 → 舰长（用户名）：，有粉丝牌 → 用�
   assert.deepEqual(synths, ['舰长（舰长小明）：舰长晚上好', '铁粉小红，铁粉晚上好', '路人晚上好']);
 });
 
+test('用户级音色预设：UID/用户名匹配，优先级高于舰长与等级区间', () => {
+  const { service } = createService({
+    voiceGuard: 'zh-CN-YunyangNeural',
+    voiceTiers: [{ min: 1, max: 40, voice: 'zh-CN-YunjianNeural' }],
+    voiceUsers: [
+      { name: '人境庐丶', voice: 'zh-CN-XiaoxiaoNeural' },
+      { uid: '316052822', voice: 'zh-CN-YunxiNeural' },
+    ],
+  });
+  // 用户名匹配（即使同时是舰长+高等级，预设优先）
+  assert.equal(
+    service.resolveVoice({ uid: '10001', rawUser: '人境庐丶', guard: 2, medal: { lv: 30 } }),
+    'zh-CN-XiaoxiaoNeural'
+  );
+  // UID 匹配
+  assert.equal(
+    service.resolveVoice({ uid: '316052822', rawUser: '别的名字', guard: 0, medal: null }),
+    'zh-CN-YunxiNeural'
+  );
+  // 未预设用户 → 舰长 → 区间
+  assert.equal(service.resolveVoice({ uid: '20001', rawUser: '路人', guard: 3, medal: { lv: 30 } }), 'zh-CN-YunyangNeural');
+  assert.equal(service.resolveVoice({ uid: '20002', rawUser: '路人', guard: 0, medal: { lv: 30 } }), 'zh-CN-YunjianNeural');
+});
+
 test('音色-等级绑定：舰长 → voiceGuard；区间命中 → 区间音色；无牌 → 全局默认', () => {
   const { service } = createService({
     voiceGuard: 'zh-CN-YunyangNeural',

@@ -75,6 +75,7 @@ export function normalizeBiliCommand(payload) {
       type: 'danmaku',
       uid: String(uid || ''),
       user: cleanDanmakuUser(rawUser, uid, medal),
+      rawUser, // 原始用户名（未脱敏，用于用户级音色预设匹配）
       text: String(info[1] || ''),
       emots: parseDanmakuEmots(info[0]),
       bigEmote: parseBigEmote(info[0]),

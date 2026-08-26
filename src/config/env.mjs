@@ -56,6 +56,27 @@ function parseVoiceTiers(raw) {
   return tiers;
 }
 
+/** 解析用户级音色预设："用户名:音色,uid:音色" → [{uid,name,voice}]。键为纯数字按 UID 匹配，否则按原始用户名匹配。 */
+function parseVoiceUsers(raw) {
+  const users = [];
+  if (!raw) return users;
+  for (const part of String(raw).split(',')) {
+    const colon = part.lastIndexOf(':');
+    if (colon <= 0) {
+      console.warn(`[Config] 忽略非法用户音色预设: ${part}`);
+      continue;
+    }
+    const key = part.slice(0, colon).trim();
+    const voice = part.slice(colon + 1).trim();
+    if (!key || !voice) {
+      console.warn(`[Config] 忽略非法用户音色预设: ${part}`);
+      continue;
+    }
+    users.push(/^\d+$/.test(key) ? { uid: key, voice } : { name: key, voice });
+  }
+  return users;
+}
+
 export function loadConfig(projectRoot, runtimeEnv = process.env) {
   const fileEnv = parseEnvFile(path.resolve(projectRoot, '..', '.env'));
   const env = { ...fileEnv, ...runtimeEnv };
@@ -124,6 +145,8 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       // 音色-等级绑定：舰长专属音色 + 等级区间映射（音色必须属于 Edge 支持集）
       voiceGuard: env.TTS_VOICE_GUARD?.trim() || '',
       voiceTiers: parseVoiceTiers(env.TTS_VOICE_TIERS),
+      // 用户级音色预设（最高优先级）：TTS_VOICE_USERS=用户名:音色,uid:音色
+      voiceUsers: parseVoiceUsers(env.TTS_VOICE_USERS),
       audioFile: path.resolve(projectRoot, env.TTS_AUDIO_FILE?.trim() || 'data/tts/current.mp3'),
       stateFile: path.resolve(projectRoot, env.TTS_STATE_FILE?.trim() || 'data/tts-state.json'),
     },

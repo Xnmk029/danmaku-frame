@@ -222,6 +222,7 @@ export function createHttpServer({
         default: ttsService.state.settings.voice,
         guard: ttsService.config.voiceGuard || null,
         tiers: ttsService.config.voiceTiers || [],
+        users: ttsService.config.voiceUsers || [],
       });
       return;
     }
