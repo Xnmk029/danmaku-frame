@@ -1,14 +1,11 @@
 // 服务定义 + 进程管理（ServiceRuntime）
-// 合并布局：LiveControl 位于 danmaku-frame/livecontrol，
-// 弹幕姬 = 上级目录（danmaku-frame），OBS 产品根 = 上上级，VUP = 上上上级/vup
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const { EventEmitter } = require('events');
 
-const DANMAKU_ROOT = path.resolve(__dirname, '..');
-const PRODUCT_ROOT = path.resolve(__dirname, '..', '..');
-const OBS_ROOT = PRODUCT_ROOT;
-const VUP_ROOT = path.resolve(PRODUCT_ROOT, '..', 'vup');
+const PRODUCT_ROOT = 'G:/产品';
+const OBS_ROOT = path.join(PRODUCT_ROOT, 'OBS');
+const VUP_ROOT = path.join(PRODUCT_ROOT, 'vup');
 
 // ---------------- 服务定义 ----------------
 const SERVICE_DEFS = [
@@ -19,7 +16,7 @@ const SERVICE_DEFS = [
     icon: 'forum',
     file: 'node',
     args: ['supervisor.mjs'],
-    cwd: DANMAKU_ROOT,
+    cwd: path.join(OBS_ROOT, 'danmaku-frame'),
     health: 'http',
     url: 'http://127.0.0.1:7788/healthz',
     killPorts: [7788, 7789],
@@ -37,6 +34,17 @@ const SERVICE_DEFS = [
     health: 'process',
     readyTimeout: 15,
     chain: 40,
+  },
+  {
+    id: 'whale-rgb',
+    name: '鲸鱼RGB',
+    desc: '大鲸鱼图层色相扫描 RGB 流光滤镜（OBS WebSocket，速度 °/s 可调）',
+    icon: 'palette',
+    file: 'node',
+    args: ['scratch/animate-whale-rgb.mjs'],
+    cwd: OBS_ROOT,
+    health: 'process',
+    readyTimeout: 15,
   },
   {
     id: 'facetrack',
