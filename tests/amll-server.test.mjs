@@ -90,7 +90,11 @@ test('server emits offline when last client disconnects', async () => {
     const ws = await connect(actualPort);
     await new Promise(r => setTimeout(r, 30));
     ws.close();
-    await new Promise(r => setTimeout(r, 50));
+    // 事件驱动轮询等待（避免并行负载下的时序抖动）
+    const deadline = Date.now() + 2_000;
+    while (offline.length === 0 && Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 20));
+    }
     assert.equal(offline.length, 1);
     assert.equal(server.active, false);
   } finally {
