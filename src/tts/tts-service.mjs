@@ -463,7 +463,7 @@ export class DanmakuTtsService extends EventEmitter {
     return tier?.voice || null;
   }
 
-  /** 切换到目标音色（绑定音色与全局音色的统一切换入口）。 */
+  /** 切换到目标音色（面板全局音色变更使用；弹幕级绑定走 synthesize 软切换，不再走这里）。 */
   switchVoice(voice) {
     if (voice === this.currentVoice) return;
     this.currentVoice = voice;
@@ -494,13 +494,9 @@ export class DanmakuTtsService extends EventEmitter {
     this.broadcastState();
 
     try {
-      // 音色绑定：本弹幕指定音色→切到该音色；未指定（无牌）→切回全局默认
-      if (item.voice) {
-        this.switchVoice(item.voice);
-      } else {
-        this.switchVoice(this.state.settings.voice);
-      }
-      const audio = await this.engine.synthesize(item.text);
+      // 音色绑定：每条弹幕指定音色（预设/舰长/区间）→ 软切换（同连接零重建）；未指定 → 全局默认
+      const targetVoice = item.voice || this.state.settings.voice;
+      const audio = await this.engine.synthesize(item.text, { voice: targetVoice });
       // 音频指纹（诊断：确认每条弹幕合成的是不同内容）
       const hash = createHash('sha1').update(audio).digest('hex').slice(0, 12);
       const rec = this.recent.find(entry => entry.action === 'read' && entry.text === item.text.slice(0, 60));

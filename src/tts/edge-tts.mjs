@@ -104,10 +104,21 @@ export class EdgeTtsEngine {
   /**
    * 合成一条语音。最多尝试 3 次（Edge 服务端对部分音色存在偶发断连）。
    * @param {string} text 朗读文本
+   * @param {{voice?: string}} options 可选：本条约定的音色（软切换——仅更新 SSML voice，
+   *   复用现有 WS 连接，避免每条弹幕都重建连接造成延迟；实测同连接交替音色零握手开销）
    * @returns {Promise<Buffer>} mp3 音频数据
    */
-  async synthesize(text) {
+  async synthesize(text, { voice } = {}) {
     if (!String(text).trim()) throw new Error('朗读文本为空');
+
+    // 软切换：仅更新库内部的 voice/voiceLocale（SSML 每 turn 自带 voice 名，无需重建连接）
+    if (voice && voice !== this.voice) {
+      this.voice = voice;
+      if (this.client) {
+        this.client._voice = voice;
+        this.client._metadataOptions.voiceLocale = /^\w{2,3}-\w{2,3}/.exec(voice)?.[0] || 'zh-CN';
+      }
+    }
 
     // token 预刷新：连接使用超过 4 分钟强制重建（Sec-MS-GEC 5 分钟有效期）
     if (this.connected && this.connectedAt && Date.now() - this.connectedAt > EdgeTtsEngine.CONNECTION_TTL_MS) {
