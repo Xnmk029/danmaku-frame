@@ -16,3 +16,11 @@ data/*
 !data/.gitkeep
 music/*
 !music/.gitkeep
+
+# LiveControl desktop console (merged subproject) — build artifacts & deps
+livecontrol/node_modules/
+livecontrol/dist/
+livecontrol/dist-v2/
+livecontrol/build/
+livecontrol/renderer/bundle.js
+livecontrol/LiveControl.sln
