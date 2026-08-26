@@ -1,12 +1,13 @@
 {
   "name": "danmaku-frame",
-  "version": "1.0.0",
-  "description": "赛博朋克 / Matrix 极简风格 B站直播弹幕 H5 边框插件与中继服务器 (Danmaku Frame Overlay)",
+  "version": "1.1.0",
+  "description": "赛博朋克 / Matrix 极简风格 B站直播弹幕 H5 边框插件与中继服务器，附带弹幕朗读（Edge TTS）、点歌姬、崩溃自动重启守护与 LiveControl 直播控制台（Danmaku Frame Overlay）",
   "main": "server.mjs",
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
+    "supervised": "node supervisor.mjs",
     "test": "node --test tests/*.test.mjs",
     "check": "node --check server.mjs"
   },
@@ -23,6 +24,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "msedge-tts": "^2.0.7",
     "ws": "^8.18.0"
   }
 }

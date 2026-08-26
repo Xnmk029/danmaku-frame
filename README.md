@@ -1,6 +1,8 @@
 # LIVE FRAME — B站直播弹幕 H5 赛博朋克边框插件
 
-一款专为 **OBS Studio 直播与屏幕录制** 设计的高颜值 **赛博朋克 16:9 极简直播边框与 B站实时弹幕 H5 插件**。集成了 Watch Dogs 风格终端字符乱码解码动效 (Scramble Text Engine)、全色系 RGB 动态流光 / 呼吸灯效，以及开箱即用的原生 B站 WebSocket 弹幕中继服务。
+一款专为 **OBS Studio 直播与屏幕录制** 设计的高颜值 **赛博朋克 16:9 极简直播边框与 B站实时弹幕 H5 插件**。集成了 Watch Dogs 风格终端字符乱码解码动效 (Scramble Text Engine)、全色系 RGB 动态流光 / 呼吸灯效，以及开箱即用的原生 B站 WebSocket 弹幕中继服务。附带 **弹幕朗读（Edge TTS）**、**崩溃自动重启守护** 与 **LiveControl 桌面直播控制台**（弹幕朗读调音面板）。
+
+> 📦 仓库布局：本仓库 == 完整项目 = 弹幕姬服务端（本目录）+ **`livecontrol/`**（Electron 直播控制台子项目，依赖本服务端）。目录结构见下文。
 
 ---
 
@@ -39,26 +41,111 @@
   - 首版支持 `music/` 目录中的本地合法音频；网络直链默认关闭。
   - 提供独立的 OBS 正在播放浏览器源。
 
+- **弹幕朗读（Edge TTS）**
+  - 微软 Edge 在线语音合成（无需 API Key），Windows 扬声器朗读弹幕。
+  - 主播/房管弹幕命令 `朗读开` / `朗读关` / `朗读跳过` 实时控制；状态跨重启持久化。
+  - 内置过滤：命令弹幕跳过、超长截断、用户/关键词黑名单、同文本去重、用户冷却、串行队列（不重叠）。
+  - 支持音色/语速/音调/音量配置（默认晓晓 zh-CN-XiaoxiaoNeural）。
+
+- **崩溃自动重启（Supervisor 守护）**
+  - 启动 `node supervisor.mjs`（或使用根目录 `启动弹幕姬.bat`）自动获得守护模式。
+  - 进程崩溃自动重启，指数退避（1s/2s/4s/…/30s），连续 8 次熔断防止崩溃循环。
+  - 开关：`.env AUTO_RESTART_ENABLED`、`data/auto-restart.json`（运行时 API/看门狗页可改）。
+
 ---
 
 ## 项目结构
 
 ```text
-danmaku-frame/
+danmaku-frame/                 # 弹幕姬服务端（本仓库 = 完整项目）
 ├── index.html            # 16:9 赛博朋克弹幕边框 H5 前端页面 (底层源)
 ├── standby.html          # 开场待机倒计时页（开播前情绪缓冲，可联动 OBS 切场景）
 ├── matrix-danmaku.html   # 《黑客帝国》“内部消息”代码拖尾跳过飘飞弹幕 (顶层源 / UIDemo)
 ├── server.mjs            # 轻量启动入口
-├── src/                  # 服务端模块：B站连接、协议、点歌、HTTP/WS
+├── supervisor.mjs        # 守护入口：崩溃自动重启（指数退避 + 让位接管感知）
+├── src/                  # 服务端模块：B站连接、协议、点歌、TTS 朗读、HTTP/WS
+├── scripts/              # tts-player.ps1 常驻播放器 / speak-test.mjs 自检 / 音频诊断
 ├── public/song-player/   # OBS 点歌播放器与管理页面
 ├── public/ncm-nowplaying/ # OBS 网易云正在播放卡片（AMLL 联动）
+├── livecontrol/          # 🖥️ LiveControl 直播控制台（Electron + MD3 子项目）
 ├── music/                # 用户提供的合法本地音频（默认不纳入 Git）
-├── data/                 # 点歌运行状态（默认不纳入 Git）
+├── data/                 # 点歌/朗读运行状态（默认不纳入 Git）
 ├── tests/                # Node.js 单元测试
 ├── 看门狗.html            # 运行状态监控与通信检测辅助页面
 ├── package.json          # 项目依赖与启动脚本
 └── README.md             # 项目使用指南
 ```
+
+### livecontrol/ 子项目（直播控制台）
+
+Electron + Material Design 3 桌面面板：一键开播/下播、4 服务管理（弹幕姬/鸽子动画/面捕/虚拟形象）、弹幕朗读调音面板（音色/语速/音调/音量/试听）、崩溃自动重启开关、托盘常驻。
+
+```bash
+cd livecontrol
+npm install          # 首次（含 Electron 二进制）
+npm run build        # 打包 renderer（改过 renderer/*.js 后需要）
+npm start            # 启动
+# 打包发行版（产出 dist-v2/）
+npm run dist
+```
+
+服务路径为相对布局（弹幕姬 = `../`），clone 后目录结构不变即可直接管理本地弹幕姬。
+
+---
+
+## 面向 Agent 的文件关联提示
+
+> 给 AI 编码代理的导航地图：改某功能 → 触碰哪些文件 → 遵守什么约定。
+
+### 装配链（一切从 `src/app.mjs` 出发）
+
+```text
+server.mjs ──▶ src/app.mjs（装配全部子系统）
+                ├── config/env.mjs        ← 全部配置的唯一起点（.env 位于项目上层 G:\产品\OBS\.env）
+                ├── transport/http-server.mjs     HTTP 7788：静态文件 + /healthz + /api/*
+                ├── transport/websocket-gateway.mjs  WS 7789：弹幕广播 + action 指令
+                ├── bili/client.mjs + packet-codec.mjs + event-normalizer.mjs   ← B站弹幕协议
+                ├── song-request/         ← 点歌姬
+                ├── tts/                  ← 弹幕朗读（Edge TTS）
+                ├── ncm/                  ← AMLL 网易云播放信息（server/client 双模式）
+                ├── obs/obs-proxy.mjs     ← OBS 场景切换联动
+                └── platform/windows-media-controller.mjs  ← 媒体键模拟
+supervisor.mjs ──▶ 守护入口（spawn server.mjs，崩溃自动重启，读 data/auto-restart.json）
+```
+
+### 弹幕朗读（Edge TTS）链路 —— 改动时的文件地图
+
+| 职责 | 文件 | 说明 |
+| --- | --- | --- |
+| 配置项 | `src/config/env.mjs`（`tts:` 块） | `TTS_*` 环境变量，解析为中心配置 |
+| 在线合成 | `src/tts/edge-tts.mjs` | msedge-tts 封装；`setParameters()` 热更新音色/语速/音调 |
+| 本地播放 | `src/tts/windows-player.mjs` + `scripts/tts-player.ps1` | 常驻 PowerShell 播放器；stdin 指令 `PLAY/STOP/VOLUME/EXIT`；**改指令协议需两端同步** |
+| 业务服务 | `src/tts/tts-service.mjs` | 过滤/去重/队列/命令（朗读开·关·跳过）/试听/持久化 `data/tts-state.json` |
+| 对外端点 | `src/transport/http-server.mjs` | `/api/tts/state` `enabled` `settings` `test` `skip` |
+| WS 指令 | `src/transport/websocket-gateway.mjs` | `tts.get_state` `set_enabled` `set_settings` `test` `skip` |
+| 装配 | `src/app.mjs` | 注入 engine/player/service；`start()` 启播放器 |
+| 自检 | `scripts/speak-test.mjs` | 命令行试听 |
+
+### 功能 ↔ 文件索引（改哪查哪）
+
+- **B站弹幕协议**：`src/bili/`（client 连接/心跳/重连，codec 拆包 Brotli/Zlib，normalizer 事件标准化）→ 弹幕事件 `{type:'danmaku', uid, user, text, ...}` 经 gateway 广播。
+- **弹幕命令扩展**：`src/danmaku/command-parser.mjs`（点歌命令表）+ `src/song-request/song-service.mjs`（执行/权限/队列）+ `src/tts/tts-service.mjs`（朗读命令）。
+- **静态页面**：根目录 5 个 HTML 由 http-server 直出；`public/` 目录同理。**页面与后端解耦，改页面无需重启服务端进程**（逐请求读盘）。
+- **测试配套**：`tests/*.test.mjs`（node --test），新增模块必须带测试；`npm test` 全量回归。
+
+### 与其他项目的关联（关键）
+
+- **`G:\产品\LiveControl`（直播控制台 Electron）管理本服务的启停/健康/日志**（healthz 轮询）；本服务只负责业务。**任何新能力若需外部控制面板，必须提供 HTTP 或 WS 端点**，控制台只调 API。弹幕朗读调音端点即为先例。
+- `.env` 位于项目**上层** `G:\产品\OBS\.env`（`loadConfig` 主动读取），非 danmaku-frame 内。
+- OBS 联动：`standby.html` 倒计时归零 → `POST /api/obs/switch-scene` → `obs/obs-proxy.mjs`；非回环需 `WS_AUTH_TOKEN`。
+
+### 必须遵守的约定
+
+1. 新端点/新 WS action 按现有鉴权模式：回环免 token，远程必须带 `WS_AUTH_TOKEN`。
+2. `/api/*` 对**回环来源请求**自动附加 CORS 头并响应 OPTIONS 预检（供 LiveControl Electron 渲染进程等本地跨源页面调用）；不要对非回环请求放开 CORS。
+3. `data/` 下状态文件（song-state / tts-state / auto-restart）是唯一持久化通道；改结构需兼容旧文件。
+4. 播放器子进程协议变更（PS1 脚本）与 Node 侧必须同步修改、同步测试。
+5. `supervisor.mjs` 是推荐入口（崩溃自动重启）；`server.mjs` 仍可直接运行（无守护）。
 
 ---
 
@@ -74,6 +161,9 @@ npm install
 
 # 启动 HTTP 与 WebSocket 弹幕中继服务
 npm start
+
+# 或：以守护模式启动（崩溃自动重启，推荐用于直播）
+npm run supervised
 ```
 
 服务启动成功后，终端将输出如下提示信息：
@@ -113,6 +203,36 @@ WebSocket 弹幕中继服务: ws://localhost:7789
 管理页地址为 `http://127.0.0.1:7788/public/song-player/admin.html`。服务开放到局域网时，必须设置 `WS_AUTH_TOKEN`，并通过管理页 URL 的 `?token=...` 参数提供。
 
 > 本项目不提供会员歌曲解锁、版权限制绕过或第三方音乐平台私有接口。请只使用已获得播放授权的音频。
+
+### 弹幕朗读快速开始
+
+1. 在根目录 `.env` 中开启并可选调整：
+
+   ```env
+   TTS_ENABLED=true
+   TTS_VOICE=zh-CN-XiaoxiaoNeural   # 云希 zh-CN-YunxiNeural / 云扬 zh-CN-YunyangNeural ...
+   TTS_RATE=+0%
+   TTS_PITCH=+0Hz
+   TTS_PLAYER_VOLUME=100            # 本机扬声器音量 0-100
+   BILIBILI_OWNER_UID=你的UID       # 弹幕「朗读开/关/跳过」仅主播/房管可用
+   ```
+
+2. 启动服务（`npm start` 或 `npm run supervised`）。弹幕朗读的调音界面（音色/语速/音调/音量）
+   由 **`G:\产品\LiveControl`（直播控制台 Electron 应用）** 提供，服务端 API 已就绪：
+   `GET /api/tts/state`、`POST /api/tts/enabled`、`POST /api/tts/settings`、`POST /api/tts/test`、`POST /api/tts/skip`。
+   看门狗页 `http://127.0.0.1:7788/看门狗.html` 的 SYSTEM 面板提供开关入口。
+
+3. 命令行自检语音输出：
+
+   ```bash
+   node scripts/speak-test.mjs "欢迎来到直播间" zh-CN-YunxiNeural
+   ```
+
+### 崩溃自动重启
+
+- 用 `npm run supervised` 或根目录 `启动弹幕姬.bat` 启动即获得守护。
+- 运行时开关：看门狗页 SYSTEM 面板 / `POST /api/auto-restart {"enabled":false}` / 直接写 `data/auto-restart.json`。
+- 正常退出（Ctrl+C / 优雅停机）不触发重启；仅非零退出码视为崩溃。
 
 ---
 

@@ -6,6 +6,12 @@ import { getCookieValue } from '../config/env.mjs';
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36';
 
+// 连接配置缓存（借鉴 blivedm）：B站 room_init/getDanmuInfo 接口有频率限制，
+// 短时间重复连接时直接复用缓存，避免重复请求被打 412/-352。
+const CONNECTION_CACHE_TTL_MS = 5 * 60 * 1000;
+const RECONNECT_BASE_MS = 3000;
+const RECONNECT_JITTER_MS = 2000; // 随机抖动防重启风暴
+
 function parseRoomId(rawRoomId, fallback) {
   const value = String(rawRoomId || fallback).trim();
   return value.match(/live\.bilibili\.com\/(\d+)/i)?.[1]
@@ -24,6 +30,7 @@ export class BiliLiveClient extends EventEmitter {
     this.roomId = '';
     this.shouldReconnect = false;
     this.liveStatus = 0;
+    this.cachedConnection = null;
   }
 
   get headers() {
@@ -34,7 +41,16 @@ export class BiliLiveClient extends EventEmitter {
   }
 
   async getConnectionConfig(rawRoomId) {
-    let realRoomId = Number.parseInt(parseRoomId(rawRoomId, this.config.defaultRoomId), 10);
+    const normalizedRoom = parseRoomId(rawRoomId, this.config.defaultRoomId);
+
+    // 缓存命中：同一房间 5 分钟内复用 token/host/port/liveStatus
+    const cached = this.cachedConnection;
+    if (cached && cached.rawRoomId === normalizedRoom
+      && Date.now() - cached.at < CONNECTION_CACHE_TTL_MS) {
+      return { ...cached };
+    }
+
+    let realRoomId = Number.parseInt(normalizedRoom, 10);
     let liveStatus = 0;
 
     try {
@@ -92,6 +108,8 @@ export class BiliLiveClient extends EventEmitter {
       this.emit('warning', new Error(`读取弹幕连接配置失败: ${error.message}`));
     }
 
+    const result = { rawRoomId: normalizedRoom, realRoomId, token, host, port, liveStatus, at: Date.now() };
+    this.cachedConnection = result;
     return { realRoomId, token, host, port, liveStatus };
   }
 
@@ -156,11 +174,13 @@ export class BiliLiveClient extends EventEmitter {
       this.clearHeartbeat();
       this.emit('status', { type: 'status', connected: false, message: 'OFFLINE' });
       if (this.shouldReconnect) {
+        // 固定退避 + 随机抖动（借鉴 blivedm），避免多实例同时重连打爆 B站接口
+        const delay = RECONNECT_BASE_MS + Math.floor(Math.random() * RECONNECT_JITTER_MS);
         this.reconnectTimer = setTimeout(() => {
           if (this.shouldReconnect && sequence === this.connectionSequence) {
             this.connect(this.roomId).catch(error => this.emit('warning', error));
           }
-        }, 3_000);
+        }, delay);
       }
     });
   }

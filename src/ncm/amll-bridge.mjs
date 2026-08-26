@@ -40,8 +40,12 @@ export class AmllBridge extends PlaybackAggregator {
     if (this.socket) {
       const old = this.socket;
       this.socket = null;
-      old.removeAllListeners();
-      try { old.close(); } catch { /* 已关闭 */ }
+      // CONNECTING 状态的 socket close() 会触发 error 事件（ws v8 无监听时抛未捕获异常）
+      old.on('error', () => { /* 吞掉关闭过程中的连接错误 */ });
+      try { old.close(1001); } catch { /* 已关闭 */ }
+      setTimeout(() => {
+        try { old.removeAllListeners(); } catch { /* ignore */ }
+      }, 100).unref?.();
     }
     this.connected = false;
   }

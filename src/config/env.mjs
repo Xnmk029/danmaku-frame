@@ -87,6 +87,27 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       allowedUids: new Set(asList(env.SONG_ALLOWED_UIDS)),
       blockedKeywords: asList(env.SONG_BLOCKED_KEYWORDS).map(item => item.toLocaleLowerCase('zh-CN')),
     },
+    tts: {
+      // 弹幕朗读（Edge TTS 在线合成 + Windows 本地播放）
+      enabled: asBoolean(env.TTS_ENABLED, false),
+      voice: env.TTS_VOICE?.trim() || 'zh-CN-XiaoxiaoNeural',
+      rate: env.TTS_RATE?.trim() || '+0%',
+      pitch: env.TTS_PITCH?.trim() || '+0Hz',
+      volume: env.TTS_VOLUME?.trim() || '+0%',
+      playerVolume: asInteger(env.TTS_PLAYER_VOLUME, 100, { min: 0, max: 100 }) / 100,
+      maxTextLength: asInteger(env.TTS_MAX_TEXT_LENGTH, 60, { min: 10, max: 500 }),
+      skipCommands: asBoolean(env.TTS_SKIP_COMMANDS, true),
+      blockedUids: new Set(asList(env.TTS_BLOCKED_UIDS)),
+      blockedKeywords: asList(env.TTS_BLOCKED_KEYWORDS).map(item => item.toLocaleLowerCase('zh-CN')),
+      dedupeWindowMs: asInteger(env.TTS_DEDUPE_SECONDS, 10, { min: 0, max: 300 }) * 1000,
+      cooldownMs: asInteger(env.TTS_COOLDOWN_SECONDS, 3, { min: 0, max: 300 }) * 1000,
+      audioFile: path.resolve(projectRoot, env.TTS_AUDIO_FILE?.trim() || 'data/tts/current.mp3'),
+      stateFile: path.resolve(projectRoot, env.TTS_STATE_FILE?.trim() || 'data/tts-state.json'),
+    },
+    autoRestart: {
+      enabled: asBoolean(env.AUTO_RESTART_ENABLED, true),
+      switchFile: path.resolve(projectRoot, env.AUTO_RESTART_SWITCH_FILE?.trim() || 'data/auto-restart.json'),
+    },
   };
 }
 

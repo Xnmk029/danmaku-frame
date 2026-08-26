@@ -225,6 +225,25 @@
         /* 切换面板时的动画 */
         .glitch-slice { animation: slice-anim 0.3s steps(4) forwards; }
 
+        /* 真实系统开关（SYSTEM 面板） */
+        .sys-hint {
+            font-size: 0.85rem;
+            color: var(--ds-yellow);
+            opacity: 0.7;
+            letter-spacing: 1px;
+            margin-top: -5px;
+        }
+        .switch-dup-btn {
+            color: #000; background: var(--ds-green);
+            padding: 2px 14px; cursor: pointer;
+            user-select: none;
+            clip-path: polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%);
+            transition: all 0.1s;
+        }
+        .switch-dup-btn:hover { background: var(--ds-magenta); color: #fff; transform: scale(1.1); }
+        .switch-dup-btn.off { background: var(--ds-magenta); }
+        .switch-dup-btn.off:hover { background: var(--ds-green); color: #000; }
+
         @keyframes slice-anim {
             0% { clip-path: inset(10% -10% 20% -10%); transform: translate(-10px, 5px); }
             30% { clip-path: inset(80% -10% 5% -10%); transform: translate(10px, -5px); }
@@ -280,6 +299,7 @@
                 <div class="nav-item" onclick="switchTab('graphics', this)">GRAPHICS</div>
                 <div class="nav-item" onclick="switchTab('audio', this)">AUDIO</div>
                 <div class="nav-item" onclick="switchTab('controls', this)">CONTROLS</div>
+                <div class="nav-item" onclick="switchTab('system', this)">SYSTEM</div>
             </div>
 
             <!-- 右侧设置区 -->
@@ -321,6 +341,30 @@
                         <div class="arrow-btn" onclick="changeVal(this, 5)">+</div>
                     </div>
                 </div>
+
+                <!-- ===== REAL SYSTEM SWITCHES ===== -->
+                <div class="tab-title scramble-text" id="system-title" style="font-size:2.2rem;margin:20px 0 5px 0;">SYSTEM</div>
+                <div class="sys-hint">// REAL CONTROLS — 真实控制项（受服务端 WS_AUTH_TOKEN 保护）</div>
+
+                <div class="setting-row">
+                    <div class="setting-label scramble-text">TTS READER</div>
+                    <div class="setting-control" id="tts-switch">
+                        <div class="switch-dup-btn off" onclick="setTtsEnabled(false)">OFF</div>
+                        <div class="val-text scramble-text" id="tts-switch-val" style="font-size:1.6rem;">--</div>
+                        <div class="switch-dup-btn" onclick="setTtsEnabled(true)">ON</div>
+                    </div>
+                </div>
+                <div class="sys-hint">// Edge TTS 在线合成弹幕朗读。主播/房管也可发弹幕：朗读开 / 朗读关 / 朗读跳过</div>
+
+                <div class="setting-row">
+                    <div class="setting-label scramble-text">AUTO RESTART</div>
+                    <div class="setting-control" id="ar-switch">
+                        <div class="switch-dup-btn off" onclick="setAutoRestart(false)">OFF</div>
+                        <div class="val-text scramble-text" id="ar-switch-val" style="font-size:1.6rem;">--</div>
+                        <div class="switch-dup-btn" onclick="setAutoRestart(true)">ON</div>
+                    </div>
+                </div>
+                <div class="sys-hint">// 崩溃自动重启（supervisor.mjs 守护，指数退避+熔断）。需通过 启动弹幕姬.bat 启动才生效</div>
             </div>
         </div>
     </div>
@@ -374,6 +418,7 @@
             runScrambleAll();
             initMatrixBg();
             setInterval(updateHUD, 1000);
+            loadSystemSwitches();
         };
 
         // 标签页切换逻辑
@@ -430,6 +475,65 @@
                 valEl.style.transform = 'none'; 
                 valEl.style.color = 'var(--ds-green)';
             }, 80);
+        }
+
+        // ==========================================
+        // 真实系统开关（SYSTEM 面板）：TTS 朗读 / 崩溃自动重启
+        // ==========================================
+        async function apiJson(url, options) {
+            const res = await fetch(url, options);
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.error || `HTTP ${res.status}`);
+            return payload;
+        }
+
+        function renderSwitchVal(id, enabled) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            scrambler.scramble(el, enabled ? 'ON' : 'OFF', 200);
+            el.style.color = enabled ? 'var(--ds-green)' : 'var(--ds-magenta)';
+        }
+
+        async function loadSystemSwitches() {
+            try {
+                const tts = await apiJson('/api/tts/state');
+                renderSwitchVal('tts-switch-val', tts.enabled);
+            } catch (error) {
+                renderSwitchVal('tts-switch-val', false);
+                document.getElementById('tts-switch-val').innerText = 'ERR';
+            }
+            try {
+                const ar = await apiJson('/api/auto-restart');
+                renderSwitchVal('ar-switch-val', ar.enabled);
+            } catch (error) {
+                document.getElementById('ar-switch-val').innerText = 'ERR';
+            }
+        }
+
+        async function setTtsEnabled(enabled) {
+            try {
+                await apiJson('/api/tts/enabled', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled }),
+                });
+            } catch (error) {
+                alert('TTS 开关失败: ' + error.message);
+            }
+            loadSystemSwitches();
+        }
+
+        async function setAutoRestart(enabled) {
+            try {
+                await apiJson('/api/auto-restart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled }),
+                });
+            } catch (error) {
+                alert('AUTO RESTART 开关失败: ' + error.message);
+            }
+            loadSystemSwitches();
         }
 
         // ==========================================

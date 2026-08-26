@@ -14,6 +14,7 @@ export function createWebSocketGateway({
   biliClient,
   songService,
   amllBridge = null,
+  ttsService = null,
 }) {
   const clients = new Set();
   let activeRoomId = '';
@@ -50,16 +51,27 @@ export function createWebSocketGateway({
       songService.handleDanmaku(event).catch(error => {
         console.error('[SongRequest] 弹幕命令处理失败:', error.message);
       });
+      if (ttsService) {
+        try {
+          ttsService.handleDanmaku(event);
+        } catch (error) {
+          console.error('[TtsService] 弹幕处理失败:', error.message);
+        }
+      }
     }
   });
   biliClient.on('warning', error => console.error('[Bilibili]', error.message));
   songService.on('broadcast', broadcast);
+  if (ttsService) ttsService.on('state', broadcast);
 
   // AMLL 播放信息：订阅驱动（无订阅者时暂停连接）
   if (amllBridge) {
     const refreshNcm = () => {
       if (ncmSubscribers > 0) {
-        amllBridge.start();
+        // AmllServer.start() 返回 ready promise；AmllBridge.start() 无返回值 → 统一包装
+        Promise.resolve(amllBridge.start()).catch(error => {
+          console.error(`[AMLL] 启动失败（端口 ${amllBridge.port} 可能被占用）:`, error.message);
+        });
         if (amllBridge.active) sendNcm(amllBridge.snapshot());
       } else {
         amllBridge.stop();
@@ -112,6 +124,11 @@ export function createWebSocketGateway({
         return;
       }
 
+      if (payload.action === 'tts.get_state' && ttsService) {
+        send(socket, ttsService.snapshot());
+        return;
+      }
+
       if (!authorized(client, payload)) {
         send(socket, { type: 'error', code: 'UNAUTHORIZED', message: '控制操作需要有效令牌' });
         return;
@@ -153,6 +170,20 @@ export function createWebSocketGateway({
         else if (payload.command === 'pause' || payload.command === 'resume') {
           broadcast({ type: 'song.player_command', action: payload.command });
         }
+      } else if (payload.action === 'tts.set_enabled' && ttsService) {
+        ttsService.setEnabled(Boolean(payload.enabled));
+      } else if (payload.action === 'tts.set_settings' && ttsService) {
+        ttsService.setSettings({
+          voice: payload.voice,
+          rate: payload.rate,
+          pitch: payload.pitch,
+          volume: payload.volume,
+          playerVolume: payload.playerVolume,
+        });
+      } else if (payload.action === 'tts.test' && ttsService) {
+        ttsService.speakTest(payload.text);
+      } else if (payload.action === 'tts.skip' && ttsService) {
+        ttsService.skip().catch(error => console.error('[TtsService] 跳过失败:', error.message));
       } else if (payload.action === 'setCookie') {
         send(socket, {
           type: 'error',
