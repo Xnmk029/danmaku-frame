@@ -303,10 +303,12 @@ function renderTts() {
     $('ttsRate').value = tts.rate;
     $('ttsPitch').value = tts.pitch;
     $('ttsVol').value = tts.playerVolume;
+    $('ttsGain').value = tts.gain;
   }
   $('ttsRateVal').textContent = ttsFmtRate(tts.rate);
   $('ttsPitchVal').textContent = ttsFmtPitch(tts.pitch);
   $('ttsVolVal').textContent = tts.playerVolume;
+  $('ttsGainVal').textContent = `${tts.gain}%`;
 
   let status = '未在朗读';
   if (tts.playing) {
@@ -355,6 +357,7 @@ async function loadTts() {
       tts.rate = parseInt(/^([+-]?\d+)/.exec(set.rate || '')?.[1] || 0, 10);
       tts.pitch = parseInt(/^([+-]?\d+)/.exec(set.pitch || '')?.[1] || 0, 10);
       tts.playerVolume = typeof set.playerVolume === 'number' ? set.playerVolume : 100;
+      tts.gain = typeof set.gain === 'number' ? set.gain : 100;
     }
     tts.playing = s.playing || null;
     tts.queueCount = s.queueCount || 0;
@@ -407,6 +410,7 @@ function bindTts() {
     { id: 'ttsRate', key: 'rate', fmt: v => ttsFmtRate(v) },
     { id: 'ttsPitch', key: 'pitch', fmt: v => ttsFmtPitch(v) },
     { id: 'ttsVol', key: 'playerVolume', fmt: v => String(v) },
+    { id: 'ttsGain', key: 'gain', fmt: v => `${v}%` },
   ];
   const sliderShadow = {};
   const ttsApplySlider = (spec, v) => {
@@ -469,6 +473,7 @@ function saveTtsSettings() {
           rate: ttsFmtRate(Number($('ttsRate').value)),
           pitch: ttsFmtPitch(Number($('ttsPitch').value)),
           playerVolume: Number($('ttsVol').value),
+          gain: Number($('ttsGain').value),
         }),
       });
       showToast('朗读音色/语速/音调已更新');

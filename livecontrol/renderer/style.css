@@ -413,6 +413,13 @@ body {
 .tts-recent .rec .rec-text { overflow: hidden; text-overflow: ellipsis; }
 .tts-recent .rec .rec-reason { color: var(--md-sys-color-error); flex: none; font-size: 10px; }
 
+.tts-hint {
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.75;
+  padding-top: 6px;
+}
+
 /* ---- 服务列表 ---- */
 .list-scroll {
   flex: 1;

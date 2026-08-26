@@ -143,6 +143,7 @@ export function createHttpServer({
             pitch: body.pitch,
             volume: body.volume,
             playerVolume: body.playerVolume,
+            gain: body.gain,
           }, { persist: true });
           return { ok: true, settings: ttsService.state.settings };
         });
@@ -164,6 +165,8 @@ export function createHttpServer({
             user: body.user || '测试用户',
             text: String(body.text || ''),
             admin: false,
+            guard: Number(body.guard || 0),
+            medal: body.medal || null,
             receivedAt: Date.now(),
           });
           return { ok: true, stats: ttsService.stats };

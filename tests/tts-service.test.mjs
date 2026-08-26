@@ -45,9 +45,39 @@ function createService(overrides = {}) {
   return { service, calls, clock: () => clock };
 }
 
-function danmaku(text, uid = '10', user = '弹幕用户') {
-  return { type: 'danmaku', uid: String(uid), user, text };
+function danmaku(text, uid = '10', user = '弹幕用户', extra = {}) {
+  return { type: 'danmaku', uid: String(uid), user, text, ...extra };
 }
+
+test('朗读前缀：舰长 → 舰长，有粉丝牌 → 用户名，都没有 → 无前缀', async () => {
+  const { service, calls } = createService();
+  service.handleDanmaku(danmaku('舰长晚上好', '10001', '舰长小明', { guard: 1, medal: { name: '粉丝团', lv: 5 } }));
+  service.handleDanmaku(danmaku('铁粉晚上好', '10002', '铁粉小红', { guard: 0, medal: { name: '粉丝团', lv: 3 } }));
+  service.handleDanmaku(danmaku('路人晚上好', '10003', '路人小李', { guard: 0, medal: null }));
+  await new Promise(resolve => setTimeout(resolve, 40));
+  const synths = calls.filter(item => item.op === 'synth').map(item => item.text);
+  assert.deepEqual(synths, ['舰长，舰长晚上好', '铁粉小红，铁粉晚上好', '路人晚上好']);
+});
+
+test('朗读前缀可关闭（readPrefix=false 时读原文）', async () => {
+  const { service, calls } = createService({ readPrefix: false });
+  service.handleDanmaku(danmaku('晚上好', '10001', '舰长小明', { guard: 1 }));
+  await new Promise(resolve => setTimeout(resolve, 30));
+  const synths = calls.filter(item => item.op === 'synth').map(item => item.text);
+  assert.deepEqual(synths, ['晚上好']);
+});
+
+test('增益 100-150% 映射引擎 volume（+0% ~ +50%），超出钳制', () => {
+  const { service, calls } = createService();
+  service.setSettings({ gain: 150 });
+  assert.equal(service.snapshot().settings.gain, 150);
+  const params = calls.filter(item => item.op === 'setParams').at(-1)?.params;
+  assert.equal(params.volume, '+50%');
+  service.setSettings({ gain: 999 });
+  assert.equal(service.snapshot().settings.gain, 150); // 钳制上限
+  service.setSettings({ gain: 50 });
+  assert.equal(service.snapshot().settings.gain, 100); // 钳制下限
+});
 
 test('cleanupTtsText 去除表情与控制符并折叠空白', () => {
   assert.equal(cleanupTtsText('你好🎉世界\u200D❤️️ ！'), '你好世界 ！');
@@ -193,11 +223,11 @@ test('setSettings 更新音色/语速/音调/音量并同步引擎与播放器',
   assert.equal(snapshot.settings.pitch, '-10Hz');
   assert.equal(snapshot.settings.playerVolume, 60);
   assert.equal(snapshot.voice, 'zh-CN-YunxiNeural');
-  const params = calls.find(item => item.op === 'setParams')?.params;
+  const params = calls.filter(item => item.op === 'setParams').at(-1)?.params;
   assert.equal(params.voice, 'zh-CN-YunxiNeural');
   assert.equal(params.rate, '+25%');
   assert.equal(params.pitch, '-10Hz');
-  assert.equal(calls.find(item => item.op === 'setVolume')?.volume, 0.6);
+  assert.equal(calls.filter(item => item.op === 'setVolume').at(-1)?.volume, 0.6);
 });
 
 test('setSettings 拒绝非法格式并钳制音量范围', () => {

@@ -123,9 +123,14 @@
         <span class="tts-label">音量 <b id="ttsVolVal">100</b></span>
         <md-slider id="ttsVol" min="0" max="100" step="5" value="100" ticks></md-slider>
       </div>
+      <div class="tts-field">
+        <span class="tts-label">增益 <b id="ttsGainVal">100%</b></span>
+        <md-slider id="ttsGain" min="100" max="150" step="5" value="100" ticks></md-slider>
+      </div>
     </div>
     <div class="tts-status" id="ttsStatus">未在朗读</div>
     <div class="tts-recent" id="ttsRecent"></div>
+    <div class="tts-hint">朗读前缀：舰长弹幕读「舰长」，有粉丝牌的读用户名，无则不读前缀</div>
   </section>
 
   <!-- ================= 服务列表（MD3 List） ================= -->

@@ -101,6 +101,10 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       blockedKeywords: asList(env.TTS_BLOCKED_KEYWORDS).map(item => item.toLocaleLowerCase('zh-CN')),
       dedupeWindowMs: asInteger(env.TTS_DEDUPE_SECONDS, 10, { min: 0, max: 300 }) * 1000,
       cooldownMs: asInteger(env.TTS_COOLDOWN_SECONDS, 3, { min: 0, max: 300 }) * 1000,
+      // 声音增益 100-150%：映射为 Edge SSML volume（+0% ~ +50%）
+      gainPercent: asInteger(env.TTS_GAIN_PERCENT, 100, { min: 100, max: 150 }),
+      // 朗读前缀：粉丝牌 → 用户名；舰长 → "舰长"
+      readPrefix: asBoolean(env.TTS_READ_PREFIX, true),
       audioFile: path.resolve(projectRoot, env.TTS_AUDIO_FILE?.trim() || 'data/tts/current.mp3'),
       stateFile: path.resolve(projectRoot, env.TTS_STATE_FILE?.trim() || 'data/tts-state.json'),
     },

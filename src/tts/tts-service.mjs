@@ -14,6 +14,7 @@ function pickSettings(saved) {
   if (typeof saved.pitch === 'string') result.pitch = saved.pitch;
   if (typeof saved.volume === 'string') result.volume = saved.volume;
   if (typeof saved.playerVolume === 'number') result.playerVolume = saved.playerVolume;
+  if (typeof saved.gain === 'number') result.gain = saved.gain;
   return result;
 }
 
@@ -74,8 +75,12 @@ export class DanmakuTtsService extends EventEmitter {
         pitch: config.pitch ?? '+0Hz',
         volume: config.volume ?? '+0%',
         playerVolume: typeof config.playerVolume === 'number' ? config.playerVolume : 100,
+        gain: typeof config.gainPercent === 'number' ? config.gainPercent : 100,
       },
     };
+
+    // 默认增益同步到引擎（gain 100-150% → Edge volume +0%~+50%）
+    this.applySettingsToDevices();
 
     // 弹幕处理统计（可观测性：定位弹幕被哪个环节拦截）
     this.stats = {
@@ -136,12 +141,14 @@ export class DanmakuTtsService extends EventEmitter {
     }
   }
 
-  /** 将当前 settings 同步到合成引擎与播放器。 */
+  /** 将当前 settings 同步到合成引擎与播放器。
+   * 增益（gain 100-150%）映射为 Edge SSML volume：+0% ~ +50%。 */
   applySettingsToDevices() {
     const s = this.state.settings;
     this.state.voice = s.voice;
+    const gainVolume = s.gain && s.gain > 100 ? `+${s.gain - 100}%` : '+0%';
     try {
-      this.engine?.setParameters?.({ voice: s.voice, rate: s.rate, pitch: s.pitch, volume: s.volume });
+      this.engine?.setParameters?.({ voice: s.voice, rate: s.rate, pitch: s.pitch, volume: gainVolume });
     } catch (error) {
       console.error('[TtsService] 引擎参数更新失败:', error.message);
     }
@@ -185,6 +192,9 @@ export class DanmakuTtsService extends EventEmitter {
     if (typeof partial.volume === 'string' && /^[+-]?\d+(\.\d+)?%$/.test(partial.volume)) s.volume = partial.volume;
     if (typeof partial.playerVolume === 'number') {
       s.playerVolume = Math.min(100, Math.max(0, Math.round(partial.playerVolume)));
+    }
+    if (typeof partial.gain === 'number') {
+      s.gain = Math.min(150, Math.max(100, Math.round(partial.gain)));
     }
     this.applySettingsToDevices();
     if (persist) this.persistState();
@@ -324,6 +334,10 @@ export class DanmakuTtsService extends EventEmitter {
       return;
     }
 
+    // 朗读前缀：舰长 → "舰长"；有粉丝牌 → 用户名；都没有 → 无前缀
+    // （仅影响朗读文本，过滤/去重仍基于原文）
+    const readText = this.buildReadText(text, event);
+
     if (!this.state.enabled) {
       this.stats.disabled += 1;
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '朗读关闭' });
@@ -403,8 +417,24 @@ export class DanmakuTtsService extends EventEmitter {
     }
 
     this.stats.queued += 1;
-    this.recordDanmaku({ ...baseEntry, action: 'read' });
-    this.enqueue({ uid, user: event.user, text });
+    this.recordDanmaku({ ...baseEntry, action: 'read', text: readText });
+    this.enqueue({ uid, user: event.user, text: readText });
+  }
+
+  /**
+   * 构造朗读文本（带前缀规则）：
+   * - 舰长（guard 1/2/3）→ 前缀「舰长」
+   * - 有粉丝牌（medal）→ 前缀用户名
+   * - 都没有 → 无前缀
+   */
+  buildReadText(text, event) {
+    if (this.config.readPrefix === false) return text;
+    const guard = Number(event?.guard || 0);
+    const medal = event?.medal;
+    const user = String(event?.user || '');
+    if (guard >= 1) return `舰长，${text}`;
+    if (medal && user && user !== '匿名用户') return `${user}，${text}`;
+    return text;
   }
 
   enqueue(item) {
