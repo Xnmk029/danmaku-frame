@@ -40,6 +40,22 @@ function asList(value) {
     .filter(Boolean);
 }
 
+/** 解析音色-等级区间映射："21-40:zh-CN-X,11-20:zh-CN-Y" → [{min,max,voice}]（高区间优先）。 */
+function parseVoiceTiers(raw) {
+  const tiers = [];
+  if (!raw) return tiers;
+  for (const part of String(raw).split(',')) {
+    const m = /^\s*(\d+)\s*-\s*(\d+)\s*:\s*([A-Za-z0-9_-]+)\s*$/.exec(part);
+    if (!m) {
+      console.warn(`[Config] 忽略非法音色区间: ${part}`);
+      continue;
+    }
+    tiers.push({ min: Number(m[1]), max: Number(m[2]), voice: m[3] });
+  }
+  tiers.sort((a, b) => b.min - a.min);
+  return tiers;
+}
+
 export function loadConfig(projectRoot, runtimeEnv = process.env) {
   const fileEnv = parseEnvFile(path.resolve(projectRoot, '..', '.env'));
   const env = { ...fileEnv, ...runtimeEnv };
@@ -105,6 +121,9 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       gainPercent: asInteger(env.TTS_GAIN_PERCENT, 100, { min: 100, max: 150 }),
       // 朗读前缀：粉丝牌 → 用户名；舰长 → "舰长"
       readPrefix: asBoolean(env.TTS_READ_PREFIX, true),
+      // 音色-等级绑定：舰长专属音色 + 等级区间映射（音色必须属于 Edge 支持集）
+      voiceGuard: env.TTS_VOICE_GUARD?.trim() || '',
+      voiceTiers: parseVoiceTiers(env.TTS_VOICE_TIERS),
       audioFile: path.resolve(projectRoot, env.TTS_AUDIO_FILE?.trim() || 'data/tts/current.mp3'),
       stateFile: path.resolve(projectRoot, env.TTS_STATE_FILE?.trim() || 'data/tts-state.json'),
     },

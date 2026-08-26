@@ -49,14 +49,32 @@ function danmaku(text, uid = '10', user = '弹幕用户', extra = {}) {
   return { type: 'danmaku', uid: String(uid), user, text, ...extra };
 }
 
-test('朗读前缀：舰长 → 舰长，有粉丝牌 → 用户名，都没有 → 无前缀', async () => {
+test('朗读前缀：舰长 → 舰长（用户名）：，有粉丝牌 → 用户名，都没有 → 无前缀', async () => {
   const { service, calls } = createService();
   service.handleDanmaku(danmaku('舰长晚上好', '10001', '舰长小明', { guard: 1, medal: { name: '粉丝团', lv: 5 } }));
   service.handleDanmaku(danmaku('铁粉晚上好', '10002', '铁粉小红', { guard: 0, medal: { name: '粉丝团', lv: 3 } }));
   service.handleDanmaku(danmaku('路人晚上好', '10003', '路人小李', { guard: 0, medal: null }));
   await new Promise(resolve => setTimeout(resolve, 40));
   const synths = calls.filter(item => item.op === 'synth').map(item => item.text);
-  assert.deepEqual(synths, ['舰长，舰长晚上好', '铁粉小红，铁粉晚上好', '路人晚上好']);
+  assert.deepEqual(synths, ['舰长（舰长小明）：舰长晚上好', '铁粉小红，铁粉晚上好', '路人晚上好']);
+});
+
+test('音色-等级绑定：舰长 → voiceGuard；区间命中 → 区间音色；无牌 → 全局默认', () => {
+  const { service } = createService({
+    voiceGuard: 'zh-CN-YunyangNeural',
+    voiceTiers: [
+      { min: 21, max: 40, voice: 'zh-CN-YunjianNeural' },
+      { min: 1, max: 20, voice: 'zh-CN-YunxiNeural' },
+    ],
+  });
+  const guardEvent = { guard: 3, medal: { name: '粉丝团', lv: 5 } };
+  const tierHigh = { guard: 0, medal: { name: '粉丝团', lv: 30 } };
+  const tierLow = { guard: 0, medal: { name: '粉丝团', lv: 10 } };
+  const noMedal = { guard: 0, medal: null };
+  assert.equal(service.resolveVoice(guardEvent), 'zh-CN-YunyangNeural');
+  assert.equal(service.resolveVoice(tierHigh), 'zh-CN-YunjianNeural');
+  assert.equal(service.resolveVoice(tierLow), 'zh-CN-YunxiNeural');
+  assert.equal(service.resolveVoice(noMedal), null);
 });
 
 test('朗读前缀可关闭（readPrefix=false 时读原文）', async () => {

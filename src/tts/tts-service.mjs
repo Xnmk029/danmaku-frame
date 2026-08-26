@@ -101,6 +101,9 @@ export class DanmakuTtsService extends EventEmitter {
     // 最近处理记录（面板展示：每条弹幕 朗读/跳过 + 原因）
     this.recent = [];
 
+    // 当前合成音色（弹幕级音色绑定用），初始 = 全局音色
+    this.currentVoice = this.state.settings.voice;
+
     this.queue = [];
     this.busy = false;
     this.lastTextByUser = new Map(); // uid -> { text, at }
@@ -146,6 +149,7 @@ export class DanmakuTtsService extends EventEmitter {
   applySettingsToDevices() {
     const s = this.state.settings;
     this.state.voice = s.voice;
+    this.currentVoice = s.voice;
     const gainVolume = s.gain && s.gain > 100 ? `+${s.gain - 100}%` : '+0%';
     try {
       this.engine?.setParameters?.({ voice: s.voice, rate: s.rate, pitch: s.pitch, volume: gainVolume });
@@ -417,13 +421,14 @@ export class DanmakuTtsService extends EventEmitter {
     }
 
     this.stats.queued += 1;
-    this.recordDanmaku({ ...baseEntry, action: 'read', text: readText });
-    this.enqueue({ uid, user: event.user, text: readText });
+    const voice = this.resolveVoice(event);
+    this.recordDanmaku({ ...baseEntry, action: 'read', text: readText, voice: voice || undefined });
+    this.enqueue({ uid, user: event.user, text: readText, voice });
   }
 
   /**
    * 构造朗读文本（带前缀规则）：
-   * - 舰长（guard 1/2/3）→ 前缀「舰长」
+   * - 舰长（guard 1/2/3）→ 前缀「舰长（用户名）：」
    * - 有粉丝牌（medal）→ 前缀用户名
    * - 都没有 → 无前缀
    */
@@ -432,9 +437,31 @@ export class DanmakuTtsService extends EventEmitter {
     const guard = Number(event?.guard || 0);
     const medal = event?.medal;
     const user = String(event?.user || '');
-    if (guard >= 1) return `舰长，${text}`;
+    if (guard >= 1) return `舰长（${user}）：${text}`;
     if (medal && user && user !== '匿名用户') return `${user}，${text}`;
     return text;
+  }
+
+  /**
+   * 音色-等级绑定：舰长 → voiceGuard；等级区间命中 → 区间音色；否则 null（全局默认）。
+   */
+  resolveVoice(event) {
+    const guard = Number(event?.guard || 0);
+    if (guard >= 1 && this.config.voiceGuard) return this.config.voiceGuard;
+    const lv = Number(event?.medal?.lv || 0);
+    const tier = (this.config.voiceTiers || []).find(t => lv >= t.min && lv <= t.max);
+    return tier?.voice || null;
+  }
+
+  /** 切换到目标音色（绑定音色与全局音色的统一切换入口）。 */
+  switchVoice(voice) {
+    if (voice === this.currentVoice) return;
+    this.currentVoice = voice;
+    try {
+      this.engine?.setParameters?.({ voice });
+    } catch (error) {
+      console.error('[TtsService] 音色切换失败:', error.message);
+    }
   }
 
   enqueue(item) {
@@ -457,6 +484,12 @@ export class DanmakuTtsService extends EventEmitter {
     this.broadcastState();
 
     try {
+      // 音色绑定：本弹幕指定音色→切到该音色；未指定（无牌）→切回全局默认
+      if (item.voice) {
+        this.switchVoice(item.voice);
+      } else {
+        this.switchVoice(this.state.settings.voice);
+      }
       const audio = await this.engine.synthesize(item.text);
       // 音频指纹（诊断：确认每条弹幕合成的是不同内容）
       const hash = createHash('sha1').update(audio).digest('hex').slice(0, 12);
