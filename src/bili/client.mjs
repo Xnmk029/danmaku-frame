@@ -31,6 +31,7 @@ export class BiliLiveClient extends EventEmitter {
     this.shouldReconnect = false;
     this.liveStatus = 0;
     this.cachedConnection = null;
+    this.reconnectAttempts = 0; // 连续失败次数（指数退避）
   }
 
   get headers() {
@@ -109,7 +110,8 @@ export class BiliLiveClient extends EventEmitter {
     }
 
     const result = { rawRoomId: normalizedRoom, realRoomId, token, host, port, liveStatus, at: Date.now() };
-    this.cachedConnection = result;
+    // 仅在拿到有效 token 时缓存（避免 fetch 失败/空 token 被缓存导致 5 分钟死循环）
+    if (token) this.cachedConnection = result;
     return { realRoomId, token, host, port, liveStatus };
   }
 
@@ -136,9 +138,9 @@ export class BiliLiveClient extends EventEmitter {
 
     socket.on('open', () => {
       if (sequence !== this.connectionSequence) return socket.close();
-      const uid = this.config.uid
-        || Number.parseInt(getCookieValue(this.config.cookie, 'DedeUserID'), 10)
-        || 0;
+      // 匿名鉴权（uid=0）：B站 getDanmuInfo 常被风控（-352）时 fallback 的 getConf token 为游客级，
+      // 配主播 DedeUserID 会被服务端拒绝（1006）；游客 uid 匹配游客 token 稳定可用。
+      const uid = 0;
       const buvid = this.config.buvid || getCookieValue(this.config.cookie, 'buvid3');
       socket.send(makePacket(7, JSON.stringify({
         uid,
@@ -166,16 +168,21 @@ export class BiliLiveClient extends EventEmitter {
     });
 
     socket.on('error', error => {
+      console.error(`[BiliDiag] socket ERROR: ${error.message} (code=${error.code || ''})`);
       if (sequence === this.connectionSequence) this.emit('warning', error);
     });
 
-    socket.on('close', () => {
+    socket.on('close', (code, reason) => {
       if (sequence !== this.connectionSequence) return;
       this.clearHeartbeat();
       this.emit('status', { type: 'status', connected: false, message: 'OFFLINE' });
       if (this.shouldReconnect) {
-        // 固定退避 + 随机抖动（借鉴 blivedm），避免多实例同时重连打爆 B站接口
-        const delay = RECONNECT_BASE_MS + Math.floor(Math.random() * RECONNECT_JITTER_MS);
+        // 指数退避 + 随机抖动：连续失败（如 B站风控 1006）时给对端冷却时间，
+        // 避免 3 秒高频重连被持续限流。成功（收到 Opcode 8）后重置计数。
+        this.reconnectAttempts += 1;
+        const expMs = Math.min(RECONNECT_BASE_MS * (2 ** Math.min(this.reconnectAttempts - 1, 4)), 60_000);
+        const delay = expMs + Math.floor(Math.random() * RECONNECT_JITTER_MS);
+        console.error(`[Bilibili] 连接断开(code=${code})，${Math.round(delay / 1000)}s 后重连（第 ${this.reconnectAttempts} 次）`);
         this.reconnectTimer = setTimeout(() => {
           if (this.shouldReconnect && sequence === this.connectionSequence) {
             this.connect(this.roomId).catch(error => this.emit('warning', error));
@@ -192,6 +199,8 @@ export class BiliLiveClient extends EventEmitter {
         continue;
       }
       if (packet.opcode === 8) {
+        // 收到鉴权成功（Opcode 8）→ 连接真正建立，重置失败计数
+        this.reconnectAttempts = 0;
         const label = connection.liveStatus === 1 ? 'LIVE'
           : connection.liveStatus === 2 ? 'ROUND'
             : '未开播';
