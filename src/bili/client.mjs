@@ -80,10 +80,11 @@ export class BiliLiveClient extends EventEmitter {
 
     // 弹幕连接候选：token 可能为空（匿名/风控时仍可连接），host 列表用于轮换
     let token = '';
+    let authMode = 'guest'; // 'login' = 有效登录态（真实 uid，用户名不脱敏）；'guest' = 游客
     const hosts = [];
     const buvid3 = this.buvid3;
 
-    // 优先 WBI 签名请求（绕过 -352）；失败则匿名请求；再失败用 getConf 兜底
+    // 优先 WBI 签名请求（绕过 -352，需有效 SESSDATA）；失败则匿名请求；再失败用 getConf 兜底
     try {
       const wbiUrl = await buildDanmuInfoUrl(realRoomId, this.config.cookie, buvid3);
       const headers = {
@@ -98,6 +99,7 @@ export class BiliLiveClient extends EventEmitter {
       const payload = await response.json();
       if (payload.code === 0 && payload.data) {
         token = payload.data.token || '';
+        authMode = wbiUrl ? 'login' : 'guest'; // 走 wbi 签名成功 = 登录态有效
         for (const h of payload.data.host_list || []) {
           if (h.host && h.wss_port) hosts.push({ host: h.host, port: h.wss_port });
         }
@@ -118,6 +120,7 @@ export class BiliLiveClient extends EventEmitter {
         );
         const fallbackPayload = await fallbackResponse.json();
         if (!token) token = fallbackPayload.data?.token || '';
+        authMode = 'guest';
         for (const h of fallbackPayload.data?.host_server_list || []) {
           if (h.host && h.wss_port) hosts.push({ host: h.host, port: h.wss_port });
         }
@@ -135,7 +138,7 @@ export class BiliLiveClient extends EventEmitter {
     const selected = hosts.length ? hosts[Math.floor(Math.random() * hosts.length)] : DEFAULT_HOSTS[0];
     const result = {
       rawRoomId: normalizedRoom, realRoomId, token, host: selected.host, port: selected.port,
-      liveStatus, at: Date.now(), hosts, buvid3,
+      liveStatus, at: Date.now(), hosts, buvid3, authMode,
     };
     // 有 token 才缓存（无 token 时每次尝试不同 host）
     if (token) this.cachedConnection = { ...result };
@@ -177,9 +180,13 @@ export class BiliLiveClient extends EventEmitter {
 
       socket.on('open', () => {
         if (sequence !== this.connectionSequence) return socket.close();
-        // 匿名鉴权（uid=0）：B站 getDanmuInfo 常被风控（-352）时 fallback 的 getConf token 为游客级，
-        // 配主播 DedeUserID 会被服务端拒绝（1006）；游客 uid 匹配游客 token 稳定可用。
-        const uid = 0;
+        // 登录态（有效 SESSDATA + wbi 签名 token）→ 真实 uid（用户名不脱敏）；
+        // 游客（getConf/匿名 token）→ uid=0（避免 uid 与游客 token 不匹配被 1006）
+        const uid = connection.authMode === 'login'
+          ? (this.config.uid
+              || Number.parseInt(getCookieValue(this.config.cookie, 'DedeUserID'), 10)
+              || 0)
+          : 0;
         const buvid = connection.buvid3 || this.config.buvid || getCookieValue(this.config.cookie, 'buvid3');
         socket.send(makePacket(7, JSON.stringify({
           uid,
@@ -205,7 +212,6 @@ export class BiliLiveClient extends EventEmitter {
           this.emit('warning', new Error(`解析弹幕数据失败: ${error.message}`));
         }
       });
-
       socket.on('error', error => {
         if (sequence === this.connectionSequence) this.emit('warning', error);
       });
@@ -246,6 +252,7 @@ export class BiliLiveClient extends EventEmitter {
       if (packet.opcode === 8) {
         // 收到鉴权成功（Opcode 8）→ 连接真正建立，重置失败计数
         this.reconnectAttempts = 0;
+        console.error(`[Bilibili] 弹幕连接成功（${connection.authMode === 'login' ? '登录态·用户名不脱敏' : '游客' }） host=${connection.host}`);
         const label = connection.liveStatus === 1 ? 'LIVE'
           : connection.liveStatus === 2 ? 'ROUND'
             : '未开播';
