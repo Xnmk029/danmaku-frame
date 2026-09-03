@@ -275,9 +275,13 @@ async function ttsApi(path, options = {}) {
 
 // MIMO（小米 MiMo-TTS v2.5）音色
 const MIMO_VOICES = [
-  ['mimo_default', '默认音色 · 中文'],
-  ['Chloe', 'Chloe · 英文女声'],
+  ['mimo_default', '默认音色 · 中文（冰糖）'],
+  ['冰糖', '冰糖 · 中文女声'],
+  ['茉莉', '茉莉 · 中文女声'],
+  ['苏打', '苏打 · 中文男声'],
+  ['白桦', '白桦 · 中文男声'],
   ['Mia', 'Mia · 英文女声'],
+  ['Chloe', 'Chloe · 英文女声'],
   ['Milo', 'Milo · 英文男声'],
   ['Dean', 'Dean · 英文男声'],
 ];

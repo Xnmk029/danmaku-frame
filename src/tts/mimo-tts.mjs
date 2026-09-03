@@ -4,9 +4,13 @@
  * 注意：MIMO 无 rate/pitch/volume 参数（面板滑块仅对 Edge 生效）。
  */
 const MIMO_VOICES = [
-  { id: 'mimo_default', label: '默认音色 · 中文' },
-  { id: 'Chloe', label: 'Chloe · 英文女声' },
+  { id: 'mimo_default', label: '默认音色 · 中文（冰糖）' },
+  { id: '冰糖', label: '冰糖 · 中文女声' },
+  { id: '茉莉', label: '茉莉 · 中文女声' },
+  { id: '苏打', label: '苏打 · 中文男声' },
+  { id: '白桦', label: '白桦 · 中文男声' },
   { id: 'Mia', label: 'Mia · 英文女声' },
+  { id: 'Chloe', label: 'Chloe · 英文女声' },
   { id: 'Milo', label: 'Milo · 英文男声' },
   { id: 'Dean', label: 'Dean · 英文男声' },
 ];
