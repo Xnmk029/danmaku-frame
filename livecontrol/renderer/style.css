@@ -309,6 +309,20 @@ body {
   background: var(--md-sys-color-primary-container);
 }
 
+.tts-provider {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+}
+
+.main-tabs {
+  margin: 0 24px 12px;
+}
+
 .tts-actions {
   display: flex;
   align-items: center;

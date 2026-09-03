@@ -241,10 +241,12 @@ const TTS_VOICES = [
 const tts = {
   online: false,
   enabled: false,
+  provider: 'edge',
   voice: 'zh-CN-XiaoxiaoNeural',
   rate: 0,
   pitch: 0,
   playerVolume: 100,
+  gain: 100,
   playing: null,
   queueCount: 0,
   spokenCount: 0,
@@ -271,10 +273,19 @@ async function ttsApi(path, options = {}) {
   return res.json();
 }
 
+// MIMO（小米 MiMo-TTS v2.5）音色
+const MIMO_VOICES = [
+  ['mimo_default', '默认音色 · 中文'],
+  ['Chloe', 'Chloe · 英文女声'],
+  ['Milo', 'Milo · 英文男声'],
+  ['Dean', 'Dean · 英文男声'],
+];
+
 function fillTtsVoices() {
   const select = $('ttsVoice');
   select.innerHTML = '';
-  for (const [id, label] of TTS_VOICES) {
+  const list = tts.provider === 'mimo' ? MIMO_VOICES : TTS_VOICES;
+  for (const [id, label] of list) {
     const opt = document.createElement('md-select-option');
     opt.value = id;
     opt.textContent = label;
@@ -283,8 +294,12 @@ function fillTtsVoices() {
 }
 
 function ttsSetEnabled(enabled) {
-  for (const id of ['swTts', 'ttsVoice', 'ttsRate', 'ttsPitch', 'ttsVol', 'btnTtsPlay', 'btnTtsSkip']) {
+  for (const id of ['swTts', 'ttsVoice', 'ttsRate', 'ttsPitch', 'ttsVol', 'ttsGain', 'btnTtsPlay', 'btnTtsSkip']) {
     $(id).disabled = !enabled;
+  }
+  // MIMO 引擎不支持语速/音调/增益（合成参数），禁用对应滑块
+  if (enabled && tts.provider === 'mimo') {
+    for (const id of ['ttsRate', 'ttsPitch', 'ttsGain']) $(id).disabled = true;
   }
 }
 
@@ -293,13 +308,17 @@ function renderTts() {
   const badge = $('ttsOnline');
   badge.textContent = online ? 'ONLINE' : 'OFFLINE';
   badge.classList.toggle('online', online);
+  // provider 徽章
+  const providerEl = $('ttsProvider');
+  if (providerEl) providerEl.textContent = tts.provider === 'mimo' ? 'MIMO' : 'EDGE';
   ttsSetEnabled(online);
 
   /** 防抖期间避免把用户正在拖动的滑块值覆盖回去 */
   if (!tts._uiDirty) {
     $('swTts').checked = online && tts.enabled;
-    const voiceOk = TTS_VOICES.some(([id]) => id === tts.voice);
-    $('ttsVoice').value = voiceOk ? tts.voice : TTS_VOICES[0][0];
+    const voiceList = tts.provider === 'mimo' ? MIMO_VOICES : TTS_VOICES;
+    const voiceOk = voiceList.some(([id]) => id === tts.voice);
+    $('ttsVoice').value = voiceOk ? tts.voice : voiceList[0][0];
     $('ttsRate').value = tts.rate;
     $('ttsPitch').value = tts.pitch;
     $('ttsVol').value = tts.playerVolume;
@@ -349,11 +368,14 @@ async function loadTts() {
     const s = await ttsApi('/api/tts/state');
     tts.online = true;
     tts.enabled = Boolean(s.enabled);
+    const providerChanged = tts.provider !== (s.provider || 'edge');
+    tts.provider = s.provider || 'edge';
     // 参数仅在非编辑状态下回填（编辑期以控件/DOM 为准，
     // 避免 3s 轮询把用户刚调的值回写覆盖，导致保存请求发出旧值）
     if (!tts._uiDirty) {
       const set = s.settings || {};
-      tts.voice = set.voice || TTS_VOICES[0][0];
+      const voiceList = tts.provider === 'mimo' ? MIMO_VOICES : TTS_VOICES;
+      tts.voice = set.voice || voiceList[0][0];
       tts.rate = parseInt(/^([+-]?\d+)/.exec(set.rate || '')?.[1] || 0, 10);
       tts.pitch = parseInt(/^([+-]?\d+)/.exec(set.pitch || '')?.[1] || 0, 10);
       tts.playerVolume = typeof set.playerVolume === 'number' ? set.playerVolume : 100;
@@ -365,6 +387,8 @@ async function loadTts() {
     tts.skippedCount = s.skippedCount || 0;
     tts.lastError = s.lastError || '';
     tts.recent = (s.recent || []).slice(0, 8);
+    // provider 变化时重建音色列表
+    if (providerChanged) fillTtsVoices();
   } catch {
     tts.online = false;
   }
@@ -373,6 +397,13 @@ async function loadTts() {
 
 function bindTts() {
   fillTtsVoices();
+
+  // 主标签页切换（服务管理 / 弹幕朗读）
+  $('mainTabs').addEventListener('change', (e) => {
+    const idx = e.detail?.activeTabIndex ?? $('mainTabs').activeTabIndex;
+    $('svcView').style.display = idx === 0 ? '' : 'none';
+    $('ttsPanel').style.display = idx === 1 ? '' : 'none';
+  });
 
   // 朗读主开关
   $('swTts').addEventListener('change', async (e) => {
@@ -395,7 +426,8 @@ function bindTts() {
 
   // 音色选择
   $('ttsVoice').addEventListener('change', () => {
-    tts.voice = $('ttsVoice').value || TTS_VOICES[0][0];
+    const voiceList = tts.provider === 'mimo' ? MIMO_VOICES : TTS_VOICES;
+    tts.voice = $('ttsVoice').value || voiceList[0][0];
     // 进入编辑态：保护下拉不被 3s 轮询回写
     tts._uiDirty = true;
     clearTimeout(tts._uiDirtyTimer);
@@ -466,10 +498,11 @@ function saveTtsSettings() {
   ttsSaveTimer = setTimeout(async () => {
     try {
       // 直接读 DOM 当前值发送（绝不依赖 tts.* 变量：它们可能被 3s 轮询回写污染）
+      const voiceList = tts.provider === 'mimo' ? MIMO_VOICES : TTS_VOICES;
       await ttsApi('/api/tts/settings', {
         method: 'POST',
         body: JSON.stringify({
-          voice: $('ttsVoice').value || TTS_VOICES[0][0],
+          voice: $('ttsVoice').value || voiceList[0][0],
           rate: ttsFmtRate(Number($('ttsRate').value)),
           pitch: ttsFmtPitch(Number($('ttsPitch').value)),
           playerVolume: Number($('ttsVol').value),

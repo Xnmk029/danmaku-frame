@@ -219,6 +219,7 @@ export function createHttpServer({
 
     if (parsedUrl.pathname === '/api/tts/voice-map' && ttsService) {
       writeJson(res, 200, {
+        provider: ttsService.config.provider || 'edge',
         default: ttsService.state.settings.voice,
         guard: ttsService.config.voiceGuard || null,
         tiers: ttsService.config.voiceTiers || [],

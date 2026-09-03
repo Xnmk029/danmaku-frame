@@ -39,7 +39,15 @@
     </span>
   </section>
 
-  <!-- ================= 待机页倒计时快速调整 ================= -->
+  <!-- ================= 主标签页（服务管理 / 弹幕朗读） ================= -->
+  <md-tabs id="mainTabs" class="main-tabs" active-tab-index="0">
+    <md-primary-tab>服务管理</md-primary-tab>
+    <md-primary-tab>弹幕朗读</md-primary-tab>
+  </md-tabs>
+
+  <!-- ================= 服务管理视图 ================= -->
+  <div id="svcView">
+  <!-- 待机页倒计时快速调整 -->
   <section class="standby-bar">
     <div class="standby-head">
       <span class="standby-title">
@@ -85,12 +93,13 @@
     </div>
   </section>
 
-  <!-- ================= 弹幕朗读控制条（Edge TTS） ================= -->
-  <section class="tts-bar" id="ttsBar">
+  <!-- ================= 弹幕朗读设置（独立标签页 TTS） ================= -->
+  <section class="tts-bar" id="ttsPanel" style="display:none;">
     <div class="tts-head">
       <span class="tts-title">
         <md-icon class="tts-icon">record_voice_over</md-icon>
         弹幕朗读
+        <span id="ttsProvider" class="tts-provider">EDGE</span>
         <span id="ttsOnline" class="tts-online offline">OFFLINE</span>
       </span>
       <span class="tts-actions">
@@ -149,6 +158,7 @@
     </div>
     <div id="logBody" class="log-body"></div>
   </section>
+  </div><!-- /svcView -->
 
   <!-- ================= 面捕设置弹窗 ================= -->
   <md-dialog id="faceDialog">

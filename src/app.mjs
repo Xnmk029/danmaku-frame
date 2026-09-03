@@ -14,6 +14,7 @@ import { ObsProxy } from './obs/obs-proxy.mjs';
 import { AmllBridge } from './ncm/amll-bridge.mjs';
 import { AmllServer } from './ncm/amll-server.mjs';
 import { EdgeTtsEngine } from './tts/edge-tts.mjs';
+import { MimoTtsEngine } from './tts/mimo-tts.mjs';
 import { WindowsPlayer } from './tts/windows-player.mjs';
 import { DanmakuTtsService } from './tts/tts-service.mjs';
 import { parseSongCommand } from './danmaku/command-parser.mjs';
@@ -50,12 +51,19 @@ export function createApplication(runtimeEnv = process.env) {
         ? new AmllBridge({ url: config.amll.wsUrl })
         : new AmllServer({ port: config.amll.listenPort }))
     : null;
-  const ttsEngine = new EdgeTtsEngine({
-    voice: config.tts.voice,
-    rate: config.tts.rate,
-    pitch: config.tts.pitch,
-    volume: config.tts.volume,
-  });
+  // TTS 引擎：edge（微软 Edge 在线）| mimo（小米 MiMo-TTS v2.5）
+  const ttsEngine = config.tts.provider === 'mimo'
+    ? new MimoTtsEngine({
+        apiKey: config.tts.mimoApiKey,
+        baseUrl: config.tts.mimoBaseUrl,
+        voice: config.tts.mimoVoice,
+      })
+    : new EdgeTtsEngine({
+        voice: config.tts.voice,
+        rate: config.tts.rate,
+        pitch: config.tts.pitch,
+        volume: config.tts.volume,
+      });
   const ttsPlayer = new WindowsPlayer({
     audioDir: path.dirname(config.tts.audioFile),
     scriptFile: path.resolve(sourceDirectory, '..', 'scripts', 'tts-player.ps1'),
@@ -66,6 +74,8 @@ export function createApplication(runtimeEnv = process.env) {
     player: ttsPlayer,
     config: {
       ...config.tts,
+      // provider 语义对齐：mimo 模式全局音色用 MIMO 音色（Edge 音色 ID 会 400）
+      voice: config.tts.provider === 'mimo' ? config.tts.mimoVoice : config.tts.voice,
       // env 域 0-1（WindowsPlayer 用）→ settings 域 0-100（控制台用）
       playerVolume: Math.round(config.tts.playerVolume * 100),
       isCommandText: text => Boolean(parseSongCommand(text)),

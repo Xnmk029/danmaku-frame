@@ -127,11 +127,17 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
     tts: {
       // 弹幕朗读（Edge TTS 在线合成 + Windows 本地播放）
       enabled: asBoolean(env.TTS_ENABLED, false),
+      // 引擎：edge（微软 Edge 在线）| mimo（小米 MiMo-TTS v2.5）
+      provider: env.TTS_PROVIDER?.trim() || 'edge',
       voice: env.TTS_VOICE?.trim() || 'zh-CN-XiaoxiaoNeural',
       rate: env.TTS_RATE?.trim() || '+0%',
       pitch: env.TTS_PITCH?.trim() || '+0Hz',
       volume: env.TTS_VOLUME?.trim() || '+0%',
       playerVolume: asInteger(env.TTS_PLAYER_VOLUME, 100, { min: 0, max: 100 }) / 100,
+      // MIMO（小米 MiMo-TTS v2.5）配置
+      mimoApiKey: env.MIMO_API_KEY?.trim() || '',
+      mimoBaseUrl: env.MIMO_API_BASE_URL?.trim() || 'https://api.xiaomimimo.com/v1',
+      mimoVoice: env.MIMO_VOICE?.trim() || 'mimo_default',
       maxTextLength: asInteger(env.TTS_MAX_TEXT_LENGTH, 60, { min: 10, max: 500 }),
       skipCommands: asBoolean(env.TTS_SKIP_COMMANDS, true),
       blockedUids: new Set(asList(env.TTS_BLOCKED_UIDS)),

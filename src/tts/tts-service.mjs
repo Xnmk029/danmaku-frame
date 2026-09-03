@@ -122,6 +122,10 @@ export class DanmakuTtsService extends EventEmitter {
               ...this.state.settings,
               ...pickSettings(saved.settings),
             };
+            // 音色校验：持久化的音色不属于当前引擎（如 MIMO 模式下残留 Edge 音色）→ 用配置默认
+            if (this.engine?.isVoiceSupported && !this.engine.isVoiceSupported(this.state.settings.voice)) {
+              this.state.settings.voice = config.voice;
+            }
             this.applySettingsToDevices();
           }
         }
@@ -253,6 +257,7 @@ export class DanmakuTtsService extends EventEmitter {
     return {
       type: 'tts.state',
       enabled: this.state.enabled,
+      provider: this.config.provider || 'edge',
       playing: this.state.playing,
       queueCount: this.queue.length,
       lastError: this.state.lastError,
@@ -452,15 +457,25 @@ export class DanmakuTtsService extends EventEmitter {
   resolveVoice(event) {
     const uid = String(event?.uid || '');
     const name = String(event?.rawUser || event?.user || '');
+    let voice = null;
     for (const preset of this.config.voiceUsers || []) {
-      if (preset.uid && preset.uid === uid) return preset.voice;
-      if (preset.name && preset.name === name) return preset.voice;
+      if (preset.uid && preset.uid === uid) { voice = preset.voice; break; }
+      if (preset.name && preset.name === name) { voice = preset.voice; break; }
     }
-    const guard = Number(event?.guard || 0);
-    if (guard >= 1 && this.config.voiceGuard) return this.config.voiceGuard;
-    const lv = Number(event?.medal?.lv || 0);
-    const tier = (this.config.voiceTiers || []).find(t => lv >= t.min && lv <= t.max);
-    return tier?.voice || null;
+    if (!voice) {
+      const guard = Number(event?.guard || 0);
+      if (guard >= 1 && this.config.voiceGuard) voice = this.config.voiceGuard;
+    }
+    if (!voice) {
+      const lv = Number(event?.medal?.lv || 0);
+      const tier = (this.config.voiceTiers || []).find(t => lv >= t.min && lv <= t.max);
+      voice = tier?.voice || null;
+    }
+    // 引擎音色校验：绑定音色不属于当前引擎（如 MIMO 模式下配置了 Edge 音色）→ 回退全局
+    if (voice && this.engine?.isVoiceSupported && !this.engine.isVoiceSupported(voice)) {
+      return null;
+    }
+    return voice;
   }
 
   /** 切换到目标音色（面板全局音色变更使用；弹幕级绑定走 synthesize 软切换，不再走这里）。 */
