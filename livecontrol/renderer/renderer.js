@@ -404,7 +404,12 @@ function bindTts() {
   const applyTab = (idx) => {
     $('svcView').style.display = idx === 0 ? '' : 'none';
     $('ttsPanel').style.display = idx === 1 ? '' : 'none';
-    if (idx === 1) loadTts(); // 进入 TTS 页时立即刷新内容
+    if (idx === 1) {
+      // 强制重排（组件在隐藏容器中初始化后布局可能异常）
+      void $('ttsPanel').offsetHeight;
+      setTimeout(() => { void $('ttsPanel').offsetHeight; }, 120);
+      loadTts(); // 进入 TTS 页时立即刷新内容
+    }
   };
   $('mainTabs').addEventListener('change', () => {
     lastTabIdx = $('mainTabs').activeTabIndex;
@@ -685,6 +690,9 @@ function bindEvents() {
   bindStandby();
   bindFaceDialog();
   bindTts();
+  // 初始切到服务管理 tab（ttsPanel 初始可见以让组件正常初始化，此处隐藏）
+  $('svcView').style.display = '';
+  $('ttsPanel').style.display = 'none';
   loadTts();
   setInterval(loadTts, 3000); // 跟随健康轮询同步刷新朗读状态
   const data = await api.init();

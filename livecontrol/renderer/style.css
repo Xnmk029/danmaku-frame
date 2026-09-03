@@ -323,6 +323,18 @@ body {
   margin: 0 24px 12px;
 }
 
+/* 主标签页视图：占满剩余空间（body flex column 中防 flex-shrink 压缩） */
+#svcView {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#ttsPanel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
 .tts-actions {
   display: flex;
   align-items: center;

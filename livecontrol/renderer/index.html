@@ -93,8 +93,28 @@
     </div>
   </section>
 
-  <!-- ================= 弹幕朗读设置（独立标签页 TTS） ================= -->
-  <section class="tts-bar" id="ttsPanel" style="display:none;">
+  <!-- ================= 服务列表（MD3 List） ================= -->
+  <main class="list-scroll">
+    <md-list id="serviceList" class="service-list"></md-list>
+  </main>
+
+  <!-- ================= 日志面板 ================= -->
+  <section id="logPanel" class="log-panel">
+    <div class="log-header">
+      <span id="logTitle" class="log-title">日志</span>
+      <span class="log-actions">
+        <md-text-button id="btnClearLog">清空</md-text-button>
+        <md-text-button id="btnToggleLog">收起</md-text-button>
+      </span>
+    </div>
+    <div id="logBody" class="log-body"></div>
+  </section>
+  </div><!-- /svcView -->
+
+  <!-- ================= 弹幕朗读设置（独立标签页 TTS，位于 svcView 外） ================= -->
+  <!-- 初始可见：Web Components（md-slider 等）在 display:none 容器中初始化会布局异常（高度 0），
+       由 JS 在 init 后立即隐藏（applyTab(0)） -->
+  <section class="tts-bar" id="ttsPanel">
     <div class="tts-head">
       <span class="tts-title">
         <md-icon class="tts-icon">record_voice_over</md-icon>
@@ -141,24 +161,6 @@
     <div class="tts-recent" id="ttsRecent"></div>
     <div class="tts-hint">朗读前缀：舰长弹幕读「舰长」，有粉丝牌的读用户名，无则不读前缀</div>
   </section>
-
-  <!-- ================= 服务列表（MD3 List） ================= -->
-  <main class="list-scroll">
-    <md-list id="serviceList" class="service-list"></md-list>
-  </main>
-
-  <!-- ================= 日志面板 ================= -->
-  <section id="logPanel" class="log-panel">
-    <div class="log-header">
-      <span id="logTitle" class="log-title">日志</span>
-      <span class="log-actions">
-        <md-text-button id="btnClearLog">清空</md-text-button>
-        <md-text-button id="btnToggleLog">收起</md-text-button>
-      </span>
-    </div>
-    <div id="logBody" class="log-body"></div>
-  </section>
-  </div><!-- /svcView -->
 
   <!-- ================= 面捕设置弹窗 ================= -->
   <md-dialog id="faceDialog">
