@@ -319,6 +319,18 @@ body {
   background: var(--md-sys-color-tertiary-container);
 }
 
+.tts-engine {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.tts-engine-select {
+  --md-outlined-select-container-height: 40px;
+  --md-outlined-select-container-color: var(--md-sys-color-surface-container-low);
+  --md-outlined-select-hover-container-color: var(--md-sys-color-surface-container-low);
+  width: 190px;
+}
+
 .main-tabs {
   margin: 0 24px 12px;
 }

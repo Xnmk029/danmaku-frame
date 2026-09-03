@@ -56,8 +56,7 @@ export class DanmakuTtsService extends EventEmitter {
     super();
     this.engine = engine;
     this.player = player;
-    this.config = config;
-    this.ownerUid = String(ownerUid || '');
+    this.config = config;    this.ownerUid = String(ownerUid || '');
     this.adminUids = new Set([...adminUids].map(String));
     this.now = now;
 
@@ -133,6 +132,18 @@ export class DanmakuTtsService extends EventEmitter {
         console.error('[TtsService] 读取状态失败:', error.message);
       }
     }
+  }
+
+  /** 运行时替换合成引擎（引擎切换用）。 */
+  setEngine(engine, provider, defaultVoice) {
+    this.engine = engine;
+    if (provider) this.config.provider = provider;
+    // 音色语义对齐：切换引擎时用对应引擎的默认音色（Edge 音色 ID 对 MIMO 无效，反之亦然）
+    if (defaultVoice) {
+      this.state.settings.voice = defaultVoice;
+      this.currentVoice = defaultVoice;
+    }
+    this.applySettingsToDevices();
   }
 
   persistState() {

@@ -51,8 +51,8 @@ export function createApplication(runtimeEnv = process.env) {
         ? new AmllBridge({ url: config.amll.wsUrl })
         : new AmllServer({ port: config.amll.listenPort }))
     : null;
-  // TTS 引擎：edge（微软 Edge 在线）| mimo（小米 MiMo-TTS v2.5）
-  const ttsEngine = config.tts.provider === 'mimo'
+  // TTS 引擎工厂：edge（微软 Edge 在线）| mimo（小米 MiMo-TTS v2.5）
+  const createTtsEngine = (provider) => (provider === 'mimo'
     ? new MimoTtsEngine({
         apiKey: config.tts.mimoApiKey,
         baseUrl: config.tts.mimoBaseUrl,
@@ -63,7 +63,8 @@ export function createApplication(runtimeEnv = process.env) {
         rate: config.tts.rate,
         pitch: config.tts.pitch,
         volume: config.tts.volume,
-      });
+      }));
+  const ttsEngine = createTtsEngine(config.tts.provider);
   const ttsPlayer = new WindowsPlayer({
     audioDir: path.dirname(config.tts.audioFile),
     scriptFile: path.resolve(sourceDirectory, '..', 'scripts', 'tts-player.ps1'),
@@ -100,6 +101,13 @@ export function createApplication(runtimeEnv = process.env) {
     switchSceneHandler: async ({ scene }) => obsProxy.switchScene(scene || config.obs.defaultScene),
     coverHandler: amllBridge ? async id => amllBridge.getCoverData(id) : null,
     ttsService,
+    ttsProviderHandler: (provider) => {
+      if (provider !== 'edge' && provider !== 'mimo') throw new Error('provider 仅支持 edge 或 mimo');
+      config.tts.provider = provider;
+      const defaultVoice = provider === 'mimo' ? config.tts.mimoVoice : config.tts.voice;
+      ttsService.setEngine(createTtsEngine(provider), provider, defaultVoice);
+      return { provider, voice: ttsService.state.settings.voice };
+    },
     autoRestartFile: config.autoRestart.switchFile,
     autoRestartDefault: config.autoRestart.enabled,
     healthProvider: () => ({

@@ -303,7 +303,6 @@ function ttsSetEnabled(enabled) {
     for (const id of ['ttsRate', 'ttsPitch', 'ttsGain']) $(id).disabled = true;
   }
 }
-
 function renderTts() {
   const online = tts.online;
   const badge = $('ttsOnline');
@@ -371,6 +370,9 @@ async function loadTts() {
     tts.enabled = Boolean(s.enabled);
     const providerChanged = tts.provider !== (s.provider || 'edge');
     tts.provider = s.provider || 'edge';
+    // 引擎选择器同步
+    const providerSelect = $('ttsProviderSelect');
+    if (providerSelect && providerSelect.value !== tts.provider) providerSelect.value = tts.provider;
     // 参数仅在非编辑状态下回填（编辑期以控件/DOM 为准，
     // 避免 3s 轮询把用户刚调的值回写覆盖，导致保存请求发出旧值）
     if (!tts._uiDirty) {
@@ -422,6 +424,22 @@ function bindTts() {
       applyTab(idx);
     }
   }, 500);
+
+  // 引擎切换（Edge / MIMO）
+  $('ttsProviderSelect').addEventListener('change', async () => {
+    const provider = $('ttsProviderSelect').value;
+    try {
+      await ttsApi('/api/tts/provider', {
+        method: 'POST',
+        body: JSON.stringify({ provider }),
+      });
+      showToast(provider === 'mimo' ? '已切换 MIMO TTS（小米）' : '已切换 Edge TTS（全功能）');
+      loadTts();
+    } catch (error) {
+      showToast('引擎切换失败: ' + error.message);
+      loadTts();
+    }
+  });
 
   // 朗读主开关
   $('swTts').addEventListener('change', async (e) => {

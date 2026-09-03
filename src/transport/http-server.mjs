@@ -102,6 +102,7 @@ export function createHttpServer({
   wsAuthToken = '',
   coverHandler = null,
   ttsService = null,
+  ttsProviderHandler = null,
   autoRestartFile = '',
   autoRestartDefault = true,
 }) {
@@ -146,6 +147,14 @@ export function createHttpServer({
             gain: body.gain,
           }, { persist: true });
           return { ok: true, settings: ttsService.state.settings };
+        });
+        return;
+      }
+      // 引擎切换（edge / mimo）
+      if (parsedUrl.pathname === '/api/tts/provider' && ttsProviderHandler) {
+        handleJsonControl(req, res, wsAuthToken, async body => {
+          const result = ttsProviderHandler(body.provider);
+          return { ok: true, ...result };
         });
         return;
       }
