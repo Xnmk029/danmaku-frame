@@ -277,6 +277,7 @@ async function ttsApi(path, options = {}) {
 const MIMO_VOICES = [
   ['mimo_default', '默认音色 · 中文'],
   ['Chloe', 'Chloe · 英文女声'],
+  ['Mia', 'Mia · 英文女声'],
   ['Milo', 'Milo · 英文男声'],
   ['Dean', 'Dean · 英文男声'],
 ];
