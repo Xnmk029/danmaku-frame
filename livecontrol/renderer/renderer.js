@@ -398,12 +398,24 @@ async function loadTts() {
 function bindTts() {
   fillTtsVoices();
 
-  // 主标签页切换（服务管理 / 弹幕朗读）
-  $('mainTabs').addEventListener('change', (e) => {
-    const idx = e.detail?.activeTabIndex ?? $('mainTabs').activeTabIndex;
+  // 主标签页切换（服务管理 / 弹幕朗读）——事件 + 轮询双保险
+  let lastTabIdx = 0;
+  const applyTab = (idx) => {
     $('svcView').style.display = idx === 0 ? '' : 'none';
     $('ttsPanel').style.display = idx === 1 ? '' : 'none';
+    if (idx === 1) loadTts(); // 进入 TTS 页时立即刷新内容
+  };
+  $('mainTabs').addEventListener('change', () => {
+    lastTabIdx = $('mainTabs').activeTabIndex;
+    applyTab(lastTabIdx);
   });
+  setInterval(() => {
+    const idx = $('mainTabs').activeTabIndex;
+    if (idx !== lastTabIdx) {
+      lastTabIdx = idx;
+      applyTab(idx);
+    }
+  }, 500);
 
   // 朗读主开关
   $('swTts').addEventListener('change', async (e) => {
