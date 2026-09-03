@@ -6,6 +6,7 @@
 const MIMO_VOICES = [
   { id: 'mimo_default', label: '默认音色 · 中文' },
   { id: 'Chloe', label: 'Chloe · 英文女声' },
+  { id: 'Mia', label: 'Mia · 英文女声' },
   { id: 'Milo', label: 'Milo · 英文男声' },
   { id: 'Dean', label: 'Dean · 英文男声' },
 ];
@@ -44,7 +45,7 @@ export class MimoTtsEngine {
   }
 
   /**
-   * 合成一条语音。
+   * 合成一条语音（失败自动重试 2 次，对齐 Edge 引擎的容错）。
    * @param {string} text 朗读文本
    * @param {{voice?: string}} options 可选音色覆盖
    * @returns {Promise<Buffer>} mp3 音频数据
@@ -54,6 +55,21 @@ export class MimoTtsEngine {
     if (!this.apiKey) throw new Error('MIMO_API_KEY 未配置');
     const targetVoice = voice || this.voice;
 
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.requestOnce(text, targetVoice);
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  async requestOnce(text, targetVoice) {
     const body = {
       model: this.model,
       messages: [
