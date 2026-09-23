@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' http://127.0.0.1:7788 http://localhost:7788">
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' http://127.0.0.1:7788 http://localhost:7788 ws://127.0.0.1:7789 ws://localhost:7789; img-src 'self' https://*.hdslb.com data:">
   <title>直播控制台</title>
   <link rel="stylesheet" href="../node_modules/material-symbols/index.css">
   <link rel="stylesheet" href="style.css">
@@ -16,6 +16,9 @@
       <span class="brand-name">直播控制台</span>
     </div>
     <div class="titlebar-right">
+      <md-text-button id="btnLiveToggle" class="live-toggle" title="开启推流（B站登记开播并取推流参数）">
+        <md-icon slot="icon">sensors</md-icon><span id="liveToggleLabel">开播</span>
+      </md-text-button>
       <span id="streamStatus" class="stream-status"></span>
       <md-icon-button id="btnTheme" title="切换主题"><md-icon>dark_mode</md-icon></md-icon-button>
       <md-icon-button id="btnMinimize" title="最小化到托盘"><md-icon>remove</md-icon></md-icon-button>
@@ -25,6 +28,8 @@
 
   <!-- ================= 顶部操作区 ================= -->
   <section class="toolbar">
+    <md-filled-tonal-button id="btnBiliLogin">B站扫码登录</md-filled-tonal-button>
+    <span id="biliLoginStatus" role="status">登录状态检测中</span>
     <md-filled-button id="btnStreamStart">
       <md-icon slot="icon">play_arrow</md-icon>
       一键开播
@@ -39,7 +44,17 @@
     </span>
   </section>
 
-  <!-- ================= 待机页倒计时快速调整 ================= -->
+  <!-- ================= 主标签页（服务管理 / 弹幕朗读） ================= -->
+  <md-tabs id="mainTabs" class="main-tabs" active-tab-index="0">
+    <md-primary-tab>服务管理</md-primary-tab>
+    <md-primary-tab>弹幕朗读</md-primary-tab>
+    <md-primary-tab>直播互动</md-primary-tab>
+    <md-primary-tab>直播信息</md-primary-tab>
+  </md-tabs>
+
+  <!-- ================= 服务管理视图 ================= -->
+  <div id="svcView">
+  <!-- 待机页倒计时快速调整 -->
   <section class="standby-bar">
     <div class="standby-head">
       <span class="standby-title">
@@ -85,13 +100,42 @@
     </div>
   </section>
 
-  <!-- ================= 弹幕朗读控制条（Edge TTS） ================= -->
-  <section class="tts-bar" id="ttsBar">
+  <!-- ================= 服务列表（MD3 List） ================= -->
+  <main class="list-scroll">
+    <md-list id="serviceList" class="service-list"></md-list>
+  </main>
+
+  <!-- ================= 日志面板 ================= -->
+  <section id="logPanel" class="log-panel">
+    <div class="log-header">
+      <span id="logTitle" class="log-title">日志</span>
+      <span class="log-actions">
+        <md-text-button id="btnClearLog">清空</md-text-button>
+        <md-text-button id="btnToggleLog">收起</md-text-button>
+      </span>
+    </div>
+    <div id="logBody" class="log-body"></div>
+  </section>
+  </div><!-- /svcView -->
+
+  <!-- ================= 弹幕朗读设置（独立标签页 TTS，位于 svcView 外） ================= -->
+  <!-- 初始可见：Web Components（md-slider 等）在 display:none 容器中初始化会布局异常（高度 0），
+       由 JS 在 init 后立即隐藏（applyTab(0)） -->
+  <section class="tts-bar" id="ttsPanel">
     <div class="tts-head">
       <span class="tts-title">
         <md-icon class="tts-icon">record_voice_over</md-icon>
         弹幕朗读
+        <span id="ttsProvider" class="tts-provider">EDGE</span>
         <span id="ttsOnline" class="tts-online offline">OFFLINE</span>
+      </span>
+      <span class="tts-engine">
+        <md-outlined-select id="ttsProviderSelect" class="tts-engine-select">
+          <md-select-option value="edge">Edge TTS（全功能）</md-select-option>
+          <md-select-option value="mimo">MIMO TTS（小米）</md-select-option>
+          <md-select-option value="fish">Fish Audio（云端）</md-select-option>
+          <md-select-option value="hybrid">混合路由（粉丝牌→MIMO）</md-select-option>
+        </md-outlined-select>
       </span>
       <span class="tts-actions">
         <md-text-button id="btnTtsPlay">
@@ -107,9 +151,17 @@
       </span>
     </div>
     <div class="tts-controls">
-      <div class="tts-field tts-voice-field">
-        <span class="tts-label">音色</span>
+      <div class="tts-field tts-voice-field" id="ttsVoiceEdgeField">
+        <span class="tts-label">Edge 音色</span>
         <md-outlined-select id="ttsVoice" class="tts-select"></md-outlined-select>
+      </div>
+      <div class="tts-field tts-voice-field" id="ttsVoiceMimoField" style="display:none">
+        <span class="tts-label">MIMO 音色</span>
+        <md-outlined-select id="ttsMimoVoice" class="tts-select"></md-outlined-select>
+      </div>
+      <div class="tts-field tts-voice-field" id="ttsVoiceFishField" style="display:none">
+        <span class="tts-label">Fish 音色 ID</span>
+        <md-outlined-text-field id="ttsFishVoice" label="reference_id / UUID" maxlength="36" supporting-text="从 Fish Audio 音色页面复制 ID"></md-outlined-text-field>
       </div>
       <div class="tts-field">
         <span class="tts-label">语速 <b id="ttsRateVal">+0%</b></span>
@@ -128,26 +180,132 @@
         <md-slider id="ttsGain" min="100" max="150" step="5" value="100" ticks></md-slider>
       </div>
     </div>
+    <div class="tts-noprefix">
+      <span class="tts-switch-label">粉丝牌/舰长不读前缀</span>
+      <md-switch id="swTtsNoPrefix" disabled></md-switch>
+    </div>
     <div class="tts-status" id="ttsStatus">未在朗读</div>
+    <div class="tts-hint" id="ttsFishHint"></div>
     <div class="tts-recent" id="ttsRecent"></div>
-    <div class="tts-hint">朗读前缀：舰长弹幕读「舰长」，有粉丝牌的读用户名，无则不读前缀</div>
+    <div class="tts-designs">
+      <div class="tts-designs-head">
+        <span class="tts-label">音色注册表 <b id="ttsDesignCount">0</b></span>
+        <md-text-button id="btnTtsDesignsRefresh">
+          <md-icon slot="icon">refresh</md-icon>
+          刷新
+        </md-text-button>
+      </div>
+      <div id="ttsDesigns" class="tts-designs-list"></div>
+    </div>
+    <div class="tts-hint">观众发「设计音色 + 描述」绑定专属音色（需粉丝牌，走 MIMO 音色设计模型）；「删除音色」「我的音色」可自助管理</div>
   </section>
 
-  <!-- ================= 服务列表（MD3 List） ================= -->
-  <main class="list-scroll">
-    <md-list id="serviceList" class="service-list"></md-list>
-  </main>
-
-  <!-- ================= 日志面板 ================= -->
-  <section id="logPanel" class="log-panel">
-    <div class="log-header">
-      <span id="logTitle" class="log-title">日志</span>
-      <span class="log-actions">
-        <md-text-button id="btnClearLog">清空</md-text-button>
-        <md-text-button id="btnToggleLog">收起</md-text-button>
+  <!-- ================= 直播互动（独立标签页，位于 svcView 外，同 ttsPanel 约定） ================= -->
+  <!-- 初始可见：隐藏容器内的组件布局可能异常，由 JS 在 init 后立即隐藏（applyTab(0)） -->
+  <section class="ia-panel" id="interactPanel">
+    <div class="ia-head">
+      <span class="ia-title">
+        <md-icon class="ia-icon">forum</md-icon>
+        直播互动
+        <span id="iaOnline" class="tts-online offline">OFFLINE</span>
+        <span id="iaRoom" class="ia-room"></span>
+      </span>
+      <span class="ia-stats">
+        <span class="ia-stat" title="人气"><md-icon>local_fire_department</md-icon><b id="iaPop">–</b></span>
+        <span class="ia-stat" title="看过"><md-icon>visibility</md-icon><b id="iaWatched">–</b></span>
+        <span class="ia-stat" title="点赞"><md-icon>thumb_up</md-icon><b id="iaLikes">–</b></span>
+        <md-icon-button id="btnFloatOpen" title="弹出互动悬浮窗"><md-icon>open_in_new</md-icon></md-icon-button>
       </span>
     </div>
-    <div id="logBody" class="log-body"></div>
+    <md-chip-set id="iaFilters" class="ia-filters" aria-label="消息类型筛选">
+      <md-filter-chip data-ftype="danmaku" label="弹幕" selected></md-filter-chip>
+      <md-filter-chip data-ftype="gift" label="礼物" selected></md-filter-chip>
+      <md-filter-chip data-ftype="sc" label="醒目留言" selected></md-filter-chip>
+      <md-filter-chip data-ftype="guard" label="上舰" selected></md-filter-chip>
+      <md-filter-chip data-ftype="entry" label="进场" selected></md-filter-chip>
+    </md-chip-set>
+    <div class="ia-feed-wrap">
+      <div id="iaFeed" class="ia-feed" aria-live="polite"></div>
+      <div id="iaEmpty" class="ia-empty">互动消息将显示在这里</div>
+      <md-filled-tonal-button id="iaToBottom" class="ia-tobottom" style="display:none">
+        <md-icon slot="icon">keyboard_arrow_down</md-icon>
+        回到底部
+      </md-filled-tonal-button>
+    </div>
+    <div class="ia-inputbar">
+      <span id="iaMention" class="ia-mention" hidden>
+        <span class="ia-mention-name"></span>
+        <button type="button" class="ia-mention-x" title="取消 @">×</button>
+      </span>
+      <md-outlined-text-field id="iaInput" class="ia-input" type="text" maxlength="40"
+                              placeholder="发个弹幕吧…"></md-outlined-text-field>
+      <span id="iaCount" class="ia-count">0/40</span>
+      <md-filled-button id="iaSend">
+        <md-icon slot="icon">send</md-icon>
+        发送
+      </md-filled-button>
+    </div>
+    <div id="iaHint" class="ia-hint"></div>
+  </section>
+
+  <!-- ================= 直播信息（直播中心编辑 + 开播） ================= -->
+  <section class="li-panel" id="liveView" style="display:none">
+    <div class="li-head">
+      <span class="li-title">
+        <md-icon class="ia-icon">live_tv</md-icon>
+        直播信息
+        <span id="liStatus" class="tts-online">–</span>
+        <span id="liRoom" class="ia-room"></span>
+      </span>
+      <md-text-button id="liRefresh"><md-icon slot="icon">refresh</md-icon>刷新</md-text-button>
+    </div>
+
+    <div class="li-grid">
+      <div class="li-cover-wrap">
+        <div class="li-cover">
+          <img id="liCoverImg" alt="直播封面" referrerpolicy="no-referrer" hidden>
+          <span id="liCoverEmpty">暂无封面</span>
+        </div>
+        <md-text-button id="liCoverBtn"><md-icon slot="icon">upload</md-icon>更换封面</md-text-button>
+        <input type="file" id="liCoverFile" accept="image/png,image/jpeg,image/webp" hidden>
+      </div>
+      <div class="li-form">
+        <div class="li-row">
+          <md-outlined-text-field id="liTitle" class="li-field" label="直播标题" maxlength="40"
+                                  supporting-text="上限 40 字（官方页 30，建议保守）"></md-outlined-text-field>
+          <md-filled-tonal-button id="liTitleSave">保存标题</md-filled-tonal-button>
+        </div>
+        <div class="li-row">
+          <md-outlined-text-field id="liNews" class="li-field" label="主播公告" maxlength="60"
+                                  supporting-text="上限 60 字，留空隐藏"></md-outlined-text-field>
+          <md-filled-tonal-button id="liNewsSave">保存公告</md-filled-tonal-button>
+        </div>
+        <div class="li-row">
+          <md-outlined-select id="liAreaParent" class="li-select" label="一级分区"></md-outlined-select>
+          <md-outlined-select id="liAreaChild" class="li-select" label="二级分区"></md-outlined-select>
+          <md-filled-tonal-button id="liAreaSave">保存分区</md-filled-tonal-button>
+        </div>
+      </div>
+    </div>
+
+    <div class="li-stream">
+      <md-filled-button id="liStart"><md-icon slot="icon">sensors</md-icon>开启推流</md-filled-button>
+      <md-filled-tonal-button id="liStop" class="danger-tonal"><md-icon slot="icon">sensors_off</md-icon>关闭推流</md-filled-tonal-button>
+    </div>
+    <div id="liRtmp" class="li-rtmp" hidden>
+      <div class="li-rtmp-row">
+        <span class="li-rtmp-label">推流地址</span>
+        <code id="liRtmpAddr"></code>
+        <md-icon-button id="liCopyAddr" title="复制"><md-icon>content_copy</md-icon></md-icon-button>
+      </div>
+      <div class="li-rtmp-row">
+        <span class="li-rtmp-label">推流密钥</span>
+        <code id="liRtmpCode"></code>
+        <md-icon-button id="liCopyCode" title="复制"><md-icon>content_copy</md-icon></md-icon-button>
+      </div>
+      <div class="li-rtmp-hint">推流密钥每次开播会更新，请在 OBS「设置 → 直播」中替换后再开始推流</div>
+    </div>
+    <div id="liHint" class="ia-hint"></div>
   </section>
 
   <!-- ================= 面捕设置弹窗 ================= -->

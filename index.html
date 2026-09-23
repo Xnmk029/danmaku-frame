@@ -1140,6 +1140,8 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/public/voice-selection/card.css">
+  <script src="/public/voice-selection/card.js"></script>
 </head>
 
 <body>
@@ -1411,7 +1413,7 @@
             for (let i = 0; i < text.length; i++) {
               if (text[i] === ' ') { out += ' '; continue; }
               if (i < revealCount) {
-                out += text[i];
+                out += opts.plain ? ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[text[i]] || text[i]) : text[i];
               } else {
                 out += '<span class="sc">' + this.chars[Math.floor(Math.random() * this.chars.length)] + '</span>';
               }
@@ -1426,7 +1428,8 @@
             iteration++;
             if (iteration > maxIter) {
               clearInterval(el._scrambleTimer);
-              el.innerHTML = formatSyntax(text);
+              if (opts.plain) el.textContent = text;
+              else el.innerHTML = formatSyntax(text);
               if (row) row.style.transform = 'none';
               resolve();
             }
@@ -1474,11 +1477,14 @@
               this.cb.status(d.connected, d.message);
             } else if (d.type === 'popularity') {
               this.cb.popularity(d.value);
+            } else if (d.type === 'voice.selection') {
+              voiceCard.update(d);
             } else if (d.type === 'ncm.playback') {
               if (this.cb.ncm) this.cb.ncm(d);
             } else if (d.type === 'ncm.offline') {
               if (this.cb.ncmOffline) this.cb.ncmOffline();
-            } else if (d.text) {
+            } else if (d.text && ['danmaku', 'gift', 'sc'].includes(d.type)) {
+              // 仅聊天类事件上屏：watched/like/entry/guard 等互动数据不进边框（否则显示为「匿名黑客」噪音）
               this.cb.danmaku(d);
             }
           } catch (e) { }
@@ -1686,6 +1692,10 @@
 
     const ncmEl = document.getElementById('ncmNow');
     let ncmState = null;
+    const voiceCard = new VoiceSelectionCard(ncmEl, {
+      decode: (el, text) => getScrambler().decode(el, text, { duration: 420, plain: true }),
+      restore: () => renderNcm(ncmState),
+    });
     const ncmTitle = document.getElementById('ncmTitle');
     const ncmTitleTrack = ncmTitle.querySelector('.mt');
     const ncmArtist = document.getElementById('ncmArtist');
@@ -1715,7 +1725,7 @@
     }
     function renderNcm(p) {
       ncmState = p;
-      if (!p || !p.song || !p.playing) { ncmEl.hidden = true; return; }
+      if (!p || !p.song || !p.playing) { ncmEl.hidden = !voiceCard.active; return; }
       ncmEl.hidden = false;
       const name = p.song.name || '未知歌曲';
       const artist = (p.song.artists || []).join(' / ') || '未知歌手';
@@ -1725,7 +1735,8 @@
         const url = p.cover.kind === 'uri'
           ? p.cover.url
           : `/api/ncm/cover?id=${encodeURIComponent(p.cover.id)}`;
-        if (ncmCover.src !== url) { ncmCover.src = url; ncmCover.classList.remove('hidden'); }
+        if (ncmCover.getAttribute('src') !== url) ncmCover.src = url;
+        ncmCover.classList.remove('hidden');
       } else {
         ncmCover.classList.add('hidden');
       }

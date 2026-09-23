@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' http://127.0.0.1:7788 http://localhost:7788 ws://127.0.0.1:7789 ws://localhost:7789; img-src 'self' https://*.hdslb.com data:">
+  <title>直播互动</title>
+  <link rel="stylesheet" href="../node_modules/material-symbols/index.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="float-body">
+  <div class="float-shell">
+    <!-- 拖拽标题栏（无框窗） -->
+    <header class="float-bar">
+      <span class="float-title">
+        <md-icon class="ia-icon">forum</md-icon>
+        直播互动
+        <span id="iaOnline" class="tts-online offline">OFFLINE</span>
+      </span>
+      <span class="float-ctrl">
+        <md-icon-button id="fDetails" title="展开/收起 设置与统计"><md-icon>unfold_less</md-icon></md-icon-button>
+        <md-icon-button id="fLock" title="锁定悬浮窗（鼠标穿透；解锁：托盘菜单「悬浮窗鼠标穿透」）"><md-icon>lock_open</md-icon></md-icon-button>
+        <md-icon-button id="fHide" title="隐藏悬浮窗"><md-icon>close</md-icon></md-icon-button>
+      </span>
+    </header>
+    <!-- 低频控制：不透明度 + 字号（折叠区） -->
+    <div class="float-controls float-collapsible">
+      <md-icon>opacity</md-icon>
+      <md-slider id="fOpacity" min="30" max="100" step="1" value="92" aria-label="悬浮窗不透明度"></md-slider>
+      <b id="fOpacityVal">92%</b>
+      <md-icon-button id="fFontMinus" title="减小字号"><md-icon>text_decrease</md-icon></md-icon-button>
+      <md-icon-button id="fFontPlus" title="增大字号"><md-icon>text_increase</md-icon></md-icon-button>
+    </div>
+
+    <!-- 互动面板：与主窗口 interactPanel 同 id 结构，interaction.js 直接复用 -->
+    <section class="ia-panel ia-panel-float">
+      <div class="ia-head float-collapsible">
+        <span class="ia-title">
+          <span id="iaRoom" class="ia-room"></span>
+        </span>
+        <span class="ia-stats">
+          <span class="ia-stat" title="人气"><md-icon>local_fire_department</md-icon><b id="iaPop">–</b></span>
+          <span class="ia-stat" title="看过"><md-icon>visibility</md-icon><b id="iaWatched">–</b></span>
+          <span class="ia-stat" title="点赞"><md-icon>thumb_up</md-icon><b id="iaLikes">–</b></span>
+        </span>
+      </div>
+      <md-chip-set id="iaFilters" class="ia-filters float-collapsible" aria-label="消息类型筛选">
+        <md-filter-chip data-ftype="danmaku" label="弹幕" selected></md-filter-chip>
+        <md-filter-chip data-ftype="gift" label="礼物" selected></md-filter-chip>
+        <md-filter-chip data-ftype="sc" label="醒目留言" selected></md-filter-chip>
+        <md-filter-chip data-ftype="guard" label="上舰" selected></md-filter-chip>
+        <md-filter-chip data-ftype="entry" label="进场" selected></md-filter-chip>
+      </md-chip-set>
+      <div class="ia-feed-wrap">
+        <div id="iaFeed" class="ia-feed" aria-live="polite"></div>
+        <div id="iaEmpty" class="ia-empty">互动消息将显示在这里</div>
+        <md-filled-tonal-button id="iaToBottom" class="ia-tobottom" style="display:none">
+          <md-icon slot="icon">keyboard_arrow_down</md-icon>
+          回到底部
+        </md-filled-tonal-button>
+      </div>
+      <div class="ia-inputbar">
+        <span id="iaMention" class="ia-mention" hidden>
+          <span class="ia-mention-name"></span>
+          <button type="button" class="ia-mention-x" title="取消 @">×</button>
+        </span>
+        <md-outlined-text-field id="iaInput" class="ia-input" type="text" maxlength="40"
+                                placeholder="发个弹幕吧…"></md-outlined-text-field>
+        <span id="iaCount" class="ia-count">0/40</span>
+        <md-filled-button id="iaSend">
+          <md-icon slot="icon">send</md-icon>
+          发送
+        </md-filled-button>
+      </div>
+      <div id="iaHint" class="ia-hint"></div>
+    </section>
+  </div>
+  <script type="module" src="float-bundle.js"></script>
+</body>
+</html>

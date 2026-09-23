@@ -1,5 +1,5 @@
 // 直播控制台 - Electron 主进程
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { SERVICE_DEFS, ServiceRuntime } = require('./services');
@@ -10,6 +10,7 @@ const configStore = require('./config');
 const isSelfTest = process.argv.includes('--selftest');
 
 let win = null;
+let floatWin = null;
 let tray = null;
 let runtimes = [];
 let health = null;
@@ -19,6 +20,11 @@ let config = configStore.load();
 // 面捕参数注入 services.js
 if (!config.face) config.face = { capture: '0', fps: 24, model: 3, visualize: true, maxThreads: 4 };
 global.__faceConfig = config.face;
+
+// 互动悬浮窗配置
+if (!config.float) config.float = { opacity: 0.92, locked: false, bounds: null, fontSize: 13, detailsCollapsed: false };
+if (config.float.fontSize == null) config.float.fontSize = 13;
+if (config.float.detailsCollapsed == null) config.float.detailsCollapsed = false;
 
 // OBS 默认连接：首次无配置时从 G:/产品/OBS/.env 读取
 if (!config.obs || (!config.obs.password && !config.obs.url)) {
@@ -71,6 +77,47 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => win.show());
 
+  // 渲染进程 console 转发到主进程 stdout（诊断用）
+  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    console.log(`[RENDERER:${level}] ${message} (${sourceId}:${line})`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.log(`[RENDERER-GONE] ${details.reason}`);
+  });
+
+  // 临时 DOM 诊断：加载后 + 模拟点击 TTS tab 后输出布局状态（写文件，绕过 stdout 重定向）
+  if (process.env.LC_DIAG_DOM) {
+    const fs = require('fs');
+    const diagFile = path.join(__dirname, 'lc-dom-diag.json');
+    win.webContents.once('did-finish-load', async () => {
+      await new Promise((r) => setTimeout(r, 2500));
+      const dump = async (label) => {
+        const state = await win.webContents.executeJavaScript(`(() => {
+          const g = (id) => { const el = document.getElementById(id); return el ? { display: getComputedStyle(el).display, h: el.offsetHeight, w: el.offsetWidth, flex: getComputedStyle(el).flex } : null; };
+          const tabs = document.getElementById('mainTabs');
+          const children = [...document.body.children].map(el => ({ tag: el.tagName, id: el.id, cls: el.className?.toString().slice(0, 20), display: getComputedStyle(el).display, h: el.offsetHeight, flex: getComputedStyle(el).flex }));
+          return {
+            mainTabs: tabs ? { idx: tabs.activeTabIndex, h: tabs.offsetHeight } : null,
+            svcView: g('svcView'),
+            ttsPanel: g('ttsPanel'),
+            bodyChildren: children,
+            bodyH: document.body.offsetHeight,
+          };
+        })()`);
+        fs.appendFileSync(diagFile, `[${label}] ${JSON.stringify(state)}\n`);
+      };
+      await dump('initial');
+      await win.webContents.executeJavaScript(`(() => {
+        const tabs = document.getElementById('mainTabs');
+        tabs.activeTabIndex = 1;
+        tabs.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+        return tabs.activeTabIndex;
+      })()`);
+      await new Promise((r) => setTimeout(r, 800));
+      await dump('after-tts-tab');
+    });
+  }
+
   if (process.env.LC_DUMP_CSS) {
     win.webContents.once('did-finish-load', async () => {
       await new Promise((r) => setTimeout(r, 1500));
@@ -110,11 +157,98 @@ function createWindow() {
   });
 }
 
+// ---------------- 互动悬浮窗 ----------------
+function floatBoundsOnScreen(b) {
+  if (!b || typeof b.x !== 'number' || typeof b.y !== 'number') return false;
+  return screen.getAllDisplays().some((d) => {
+    const a = d.workArea;
+    return b.x >= a.x - 16 && b.y >= a.y - 16 && b.x < a.x + a.width && b.y < a.y + a.height;
+  });
+}
+
+function applyFloatLock() {
+  if (!floatWin || floatWin.isDestroyed()) return;
+  // forward:true —— 穿透时仍派发 mousemove，页面可保留 hover/滚轮样式反馈（点击被吞）
+  floatWin.setIgnoreMouseEvents(!!config.float.locked, { forward: true });
+}
+
+function pushFloatState() {
+  if (floatWin && !floatWin.isDestroyed()) {
+    floatWin.webContents.send('float:state', {
+      opacity: config.float.opacity,
+      locked: config.float.locked,
+      fontSize: config.float.fontSize,
+      detailsCollapsed: config.float.detailsCollapsed,
+    });
+  }
+}
+
+function setFloatLocked(locked) {
+  config.float.locked = Boolean(locked);
+  configStore.save(config);
+  applyFloatLock();
+  pushFloatState();
+  refreshTray();
+}
+
+function createFloatWindow() {
+  if (floatWin && !floatWin.isDestroyed()) {
+    floatWin.show();
+    floatWin.focus();
+    refreshTray();
+    return;
+  }
+  const b = floatBoundsOnScreen(config.float?.bounds) ? config.float.bounds : null;
+  floatWin = new BrowserWindow({
+    width: b?.width || 360,
+    height: b?.height || 640,
+    x: b?.x,
+    y: b?.y,
+    minWidth: 300,
+    minHeight: 420,
+    maxWidth: 560,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  floatWin.loadFile(path.join(__dirname, 'renderer', 'float.html'));
+  floatWin.once('ready-to-show', () => floatWin.show());
+  floatWin.setOpacity(config.float.opacity ?? 0.92);
+  applyFloatLock();
+
+  let boundsTimer = null;
+  const saveBounds = () => {
+    clearTimeout(boundsTimer);
+    boundsTimer = setTimeout(() => {
+      if (floatWin && !floatWin.isDestroyed() && !floatWin.isMinimized()) {
+        config.float.bounds = floatWin.getBounds();
+        configStore.save(config);
+      }
+    }, 500);
+  };
+  floatWin.on('moved', saveBounds);
+  floatWin.on('resized', saveBounds);
+  floatWin.on('close', (e) => {
+    if (!app.isQuitting) { e.preventDefault(); floatWin.hide(); }
+  });
+  floatWin.on('closed', () => { floatWin = null; });
+  floatWin.on('hide', refreshTray);
+  floatWin.on('show', refreshTray);
+}
+
 // ---------------- 托盘 ----------------
-function createTray() {
-  tray = new Tray(trayIcon());
-  tray.setToolTip('直播控制台');
-  const menu = Menu.buildFromTemplate([
+function buildTrayTemplate() {
+  const floatVisible = floatWin && !floatWin.isDestroyed() && floatWin.isVisible();
+  return [
     { label: '显示 / 隐藏面板', click: () => toggleWindow() },
     { type: 'separator' },
     ...runtimes.map((rt) => ({
@@ -122,12 +256,35 @@ function createTray() {
       click: () => (rt.alive ? rt.stop() : rt.start()),
     })),
     { type: 'separator' },
+    {
+      label: '💬 互动悬浮窗',
+      type: 'checkbox',
+      checked: !!floatVisible,
+      click: (item) => (item.checked ? createFloatWindow() : floatWin?.hide()),
+    },
+    {
+      label: '悬浮窗鼠标穿透',
+      type: 'checkbox',
+      checked: !!config.float?.locked,
+      click: (item) => setFloatLocked(item.checked),
+    },
+    { type: 'separator' },
     { label: '▶ 一键开播', click: () => orchestrator.startStream() },
     { label: '■ 一键下播', click: () => orchestrator.stopStream() },
     { type: 'separator' },
     { label: '退出', click: () => { app.isQuitting = true; app.quit(); } },
-  ]);
-  tray.setContextMenu(menu);
+  ];
+}
+
+function refreshTray() {
+  if (!tray) return;
+  tray.setContextMenu(Menu.buildFromTemplate(buildTrayTemplate()));
+}
+
+function createTray() {
+  tray = new Tray(trayIcon());
+  tray.setToolTip('直播控制台');
+  refreshTray();
   tray.on('click', () => toggleWindow());
 }
 
@@ -218,6 +375,12 @@ function registerIpc() {
     standby: config.standby || { duration: 120, mode: 'countdown', scene: '' },
     face: config.face || { capture: '0', fps: 24, model: 3, visualize: true, maxThreads: 4 },
     obs: config.obs || { url: 'ws://127.0.0.1:4455', password: '', browserSource: '' },
+    float: {
+      opacity: config.float?.opacity ?? 0.92,
+      locked: !!config.float?.locked,
+      fontSize: config.float?.fontSize ?? 13,
+      detailsCollapsed: !!config.float?.detailsCollapsed,
+    },
   }));
 
   ipcMain.handle('svc:start', (_e, id) => { const rt = findRt(id); rt?.start(); });
@@ -322,6 +485,29 @@ function registerIpc() {
   });
   ipcMain.handle('config:setSelected', (_e, id) => { config.selectedServiceId = id; configStore.save(config); });
   ipcMain.handle('app:openExternal', (_e, url) => { if (typeof url === 'string' && /^https?:\/\//.test(url)) shell.openExternal(url); });
+
+  // 互动悬浮窗
+  ipcMain.handle('float:open', () => createFloatWindow());
+  ipcMain.handle('float:hide', () => { floatWin?.hide(); refreshTray(); });
+  ipcMain.handle('float:setOpacity', (_e, v) => {
+    const o = Math.min(1, Math.max(0.3, Number(v) || 0.92));
+    config.float.opacity = o;
+    if (floatWin && !floatWin.isDestroyed()) floatWin.setOpacity(o);
+    configStore.save(config);
+    pushFloatState();
+  });
+  ipcMain.handle('float:setLocked', (_e, v) => setFloatLocked(v));
+  ipcMain.handle('float:setFontSize', (_e, v) => {
+    config.float.fontSize = Math.min(18, Math.max(11, Math.round(Number(v)) || 13));
+    configStore.save(config);
+    pushFloatState();
+  });
+  ipcMain.handle('float:setDetails', (_e, v) => {
+    config.float.detailsCollapsed = Boolean(v);
+    configStore.save(config);
+    pushFloatState();
+  });
+
   ipcMain.handle('win:minimize', () => win?.minimize());
   ipcMain.handle('win:hide', () => win?.hide());
   ipcMain.handle('win:close', () => { if (config.closeToTray) win?.hide(); else { app.isQuitting = true; app.quit(); } });

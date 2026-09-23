@@ -46,8 +46,9 @@ function isPublicStaticPath(root, targetPath) {
   const segments = relative.split(path.sep);
   if (segments.some(segment => segment.startsWith('.'))) return false;
 
-  const blockedDirectories = new Set(['src', 'tests', 'data', 'node_modules', 'DOCS']);
-  if (blockedDirectories.has(segments[0])) return false;
+  const blockedDirectories = new Set(['src', 'tests', 'data', 'node_modules', 'docs']);
+  // Windows resolves trailing dots/spaces in directory names to the same path.
+  if (blockedDirectories.has(segments[0].replace(/[. ]+$/g, '').toLowerCase())) return false;
 
   const blockedFiles = new Set(['server.mjs', 'package.json', 'package-lock.json', 'README.md']);
   return !(segments.length === 1 && blockedFiles.has(segments[0]));
@@ -101,12 +102,25 @@ export function createHttpServer({
   switchSceneHandler = null,
   wsAuthToken = '',
   coverHandler = null,
+  nowPlayingProvider = null,
   ttsService = null,
+  ttsProviderHandler = null,
   autoRestartFile = '',
   autoRestartDefault = true,
+  biliAuth = null,
+  biliConnectionProvider = () => ({}),
+  interactionService = null,
+  danmakuSendHandler = null,
+  liveHandlers = null,
 }) {
   const server = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+    // Login credentials never leave the backend. This API is restricted to the local UI.
+    if (parsedUrl.pathname.startsWith('/api/bili-auth/') && biliAuth) {
+      handleBiliAuth(req, res, parsedUrl, biliAuth, biliConnectionProvider);
+      return;
+    }
 
     // CORS：允许本地桌面控制台（LiveControl Electron renderer / file:// 页面）跨源调用 API。
     // 仅放行回环来源请求；非回环请求不带 CORS 头（保持浏览器同源保护 + token 鉴权）。
@@ -139,6 +153,9 @@ export function createHttpServer({
         handleJsonControl(req, res, wsAuthToken, async body => {
           ttsService.setSettings({
             voice: body.voice,
+            mimoVoice: body.mimoVoice,
+            fishVoice: body.fishVoice,
+            noPrefixForMedalGuard: body.noPrefixForMedalGuard,
             rate: body.rate,
             pitch: body.pitch,
             volume: body.volume,
@@ -146,6 +163,14 @@ export function createHttpServer({
             gain: body.gain,
           }, { persist: true });
           return { ok: true, settings: ttsService.state.settings };
+        });
+        return;
+      }
+      // 引擎切换（edge / mimo）
+      if (parsedUrl.pathname === '/api/tts/provider' && ttsProviderHandler) {
+        handleJsonControl(req, res, wsAuthToken, async body => {
+          const result = ttsProviderHandler(body.provider);
+          return { ok: true, ...result };
         });
         return;
       }
@@ -180,6 +205,22 @@ export function createHttpServer({
         });
         return;
       }
+      // 音色设计注册表管理（LiveControl 面板）
+      if (parsedUrl.pathname === '/api/tts/voice-designs/delete' && ttsService) {
+        handleJsonControl(req, res, wsAuthToken, async body => {
+          const uid = String(body.uid || '').trim();
+          if (!/^\d+$/.test(uid)) throw new Error('缺少合法 uid');
+          return { ok: true, removed: ttsService.removeVoiceDesign(uid) };
+        });
+        return;
+      }
+      if (parsedUrl.pathname === '/api/tts/voice-designs/test' && ttsService) {
+        handleJsonControl(req, res, wsAuthToken, async body => {
+          const result = ttsService.previewVoiceDesign(String(body.uid || ''), body.text);
+          return { ok: true, ...result };
+        });
+        return;
+      }
       if (parsedUrl.pathname === '/api/auto-restart') {
         handleJsonControl(req, res, wsAuthToken, async body => {
           if (typeof body.enabled !== 'boolean') throw new Error('缺少 enabled 布尔值');
@@ -187,6 +228,32 @@ export function createHttpServer({
           fs.writeFileSync(file, JSON.stringify({ enabled: body.enabled }, null, 2));
           return { ok: true, enabled: body.enabled };
         });
+        return;
+      }
+      // 代发直播弹幕（回环免 token；需 B站登录态 Cookie）
+      if (parsedUrl.pathname === '/api/danmaku/send' && danmakuSendHandler) {
+        handleJsonControl(req, res, wsAuthToken, async body => danmakuSendHandler(body));
+        return;
+      }
+      // 直播中心管理：信息编辑 / 开播关播（回环免 token；需 B站登录态 Cookie）
+      if (parsedUrl.pathname === '/api/live/update' && liveHandlers?.update) {
+        handleJsonControl(req, res, wsAuthToken, async body => liveHandlers.update(body));
+        return;
+      }
+      if (parsedUrl.pathname === '/api/live/news' && liveHandlers?.news) {
+        handleJsonControl(req, res, wsAuthToken, async body => liveHandlers.news(body));
+        return;
+      }
+      if (parsedUrl.pathname === '/api/live/cover' && liveHandlers?.cover) {
+        handleJsonControl(req, res, wsAuthToken, async body => liveHandlers.cover(body));
+        return;
+      }
+      if (parsedUrl.pathname === '/api/live/start' && liveHandlers?.start) {
+        handleJsonControl(req, res, wsAuthToken, async body => liveHandlers.start(body));
+        return;
+      }
+      if (parsedUrl.pathname === '/api/live/stop' && liveHandlers?.stop) {
+        handleJsonControl(req, res, wsAuthToken, async () => liveHandlers.stop());
         return;
       }
       res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD, POST /api/obs/switch-scene' });
@@ -210,6 +277,11 @@ export function createHttpServer({
       return;
     }
 
+    if (parsedUrl.pathname === '/api/ncm/state' && nowPlayingProvider) {
+      writeJson(res, 200, nowPlayingProvider());
+      return;
+    }
+
     if (parsedUrl.pathname === '/api/tts/diag' && ttsService) {
       ttsService.diag()
         .then(result => writeJson(res, 200, result))
@@ -219,7 +291,9 @@ export function createHttpServer({
 
     if (parsedUrl.pathname === '/api/tts/voice-map' && ttsService) {
       writeJson(res, 200, {
+        provider: ttsService.config.provider || 'edge',
         default: ttsService.state.settings.voice,
+        mimoDefault: ttsService.state.settings.mimoVoice,
         guard: ttsService.config.voiceGuard || null,
         tiers: ttsService.config.voiceTiers || [],
         users: ttsService.config.voiceUsers || [],
@@ -227,8 +301,35 @@ export function createHttpServer({
       return;
     }
 
+    if (parsedUrl.pathname === '/api/tts/voice-designs' && ttsService) {
+      writeJson(res, 200, ttsService.voiceDesignsSnapshot());
+      return;
+    }
+
     if (parsedUrl.pathname === '/api/auto-restart') {
       writeJson(res, 200, { enabled: readAutoRestartEnabled(autoRestartFile, autoRestartDefault) });
+      return;
+    }
+
+    // 互动面板快照：历史消息 + 数据栏统计 + 连接/登录状态（LiveControl「直播互动」页初始化拉取）
+    if (parsedUrl.pathname === '/api/interaction/state' && interactionService) {
+      writeJson(res, 200, interactionService.snapshot());
+      return;
+    }
+
+    // 直播中心：房间信息（标题/分区/开播状态/封面/公告）
+    if (parsedUrl.pathname === '/api/live/info' && liveHandlers?.info) {
+      liveHandlers.info()
+        .then((data) => writeJson(res, 200, data))
+        .catch((e) => writeJson(res, 500, { ok: false, error: e.message || '获取失败' }));
+      return;
+    }
+
+    // 直播分区树（两级，供级联选择）
+    if (parsedUrl.pathname === '/api/live/areas' && liveHandlers?.areas) {
+      liveHandlers.areas()
+        .then((data) => writeJson(res, 200, { ok: true, list: data }))
+        .catch((e) => writeJson(res, 500, { ok: false, error: e.message || '获取失败' }));
       return;
     }
 
@@ -373,3 +474,34 @@ function readAutoRestartEnabled(configuredFile, fallback) {
 
 export { isLoopbackAddress, readJsonBody, writeJson, handleCover };
 export { isPublicStaticPath, resolveStaticPath };
+
+async function handleBiliAuth(req, res, url, auth, connectionProvider) {
+  const localHost = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  const origin = req.headers.origin;
+  const desktopRead = origin === 'null' && req.method === 'GET' && url.pathname.endsWith('/state');
+  if (!isLoopbackAddress(req.socket.remoteAddress) || !localHost
+      || (origin && origin !== url.origin && !desktopRead)) {
+    writeJson(res, 403, { ok: false, error: '登录管理仅允许本机同源页面访问' });
+    return;
+  }
+  if (desktopRead) res.setHeader('Access-Control-Allow-Origin', 'null');
+  if (req.method === 'GET' && url.pathname === '/api/bili-auth/state') {
+    writeJson(res, 200, { ...auth.snapshot(), connection: connectionProvider() });
+    return;
+  }
+  if (req.method !== 'POST' || req.headers['x-bili-control'] !== '1') {
+    writeJson(res, 403, { ok: false, error: '需要本机登录管理页面发起操作' });
+    return;
+  }
+  try {
+    const body = await readJsonBody(req, 2048);
+    let result;
+    if (url.pathname === '/api/bili-auth/qr') result = await auth.generate();
+    else if (url.pathname === '/api/bili-auth/poll') result = await auth.poll(body.id);
+    else if (url.pathname === '/api/bili-auth/check') result = await auth.check();
+    else { writeJson(res, 404, { ok: false }); return; }
+    writeJson(res, 200, result);
+  } catch (error) {
+    writeJson(res, 400, { ok: false, error: error.message });
+  }
+}

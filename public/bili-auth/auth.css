@@ -1,0 +1,25 @@
+:root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #0c111b; color: #e5edf6; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 48px 20px; }
+main { max-width: 640px; margin: auto; }
+.eyebrow { color: #75d7c4; font-size: 12px; letter-spacing: 2px; }
+h1 { font-size: 36px; margin: 16px 0 12px; }
+h2 { font-size: 20px; margin: 14px 0 10px; overflow-wrap: anywhere; }
+p { line-height: 1.7; }
+.intro, .muted, .footnote { color: #a1afc0; }
+.status-card, .login-card { background: #141d2b; border: 1px solid #29374a; border-radius: 18px; padding: 26px; margin-top: 24px; }
+.badge { display: inline-block; padding: 5px 11px; border-radius: 20px; background: #403422; color: #ffd698; font-size: 12px; }
+.badge.valid { background: #193e36; color: #85e4be; }
+.badge.expired { background: #48282f; color: #ffb3bc; }
+.muted { font-size: 13px; margin: 6px 0; }
+.login-card { text-align: center; }
+.qr-placeholder { display: grid; place-items: center; min-height: 120px; color: #a1afc0; }
+img { border-radius: 10px; max-width: 100%; height: auto; background: white; }
+.actions { display: flex; gap: 12px; justify-content: center; }
+button { border: 0; border-radius: 10px; padding: 12px 22px; background: #82dfca; color: #0b2922; font: inherit; cursor: pointer; }
+button.secondary { background: #26354a; color: #e5edf6; }
+button:disabled { opacity: .5; cursor: wait; }
+button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.footnote { font-size: 13px; }
+[hidden] { display: none !important; }
+@media (max-width: 420px) { body { padding: 24px 14px; } .status-card, .login-card { padding: 20px; } }

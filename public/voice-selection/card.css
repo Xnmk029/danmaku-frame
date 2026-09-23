@@ -1,0 +1,25 @@
+.ncm-card { transition: height 320ms cubic-bezier(.22,1,.36,1), opacity 200ms; overflow: hidden; }
+.voice-music { display: flex; gap: 10px; width: 100%; min-width: 0; transition: opacity 200ms, transform 200ms; }
+.ncm-card.voice-active { height: 284px; }
+.voice-panel { position: absolute; inset: 12px; display: flex; flex-direction: column; gap: 8px; color: var(--ds-text); font-size: 12px; transition: opacity 200ms, transform 200ms; }
+.voice-panel[hidden], .voice-music[hidden] { display: none; }
+.voice-fading { opacity: 0; transform: translateY(-7px); }
+.voice-heading { font-size: 11px; color: var(--ds-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voice-query { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 18px; }
+.voice-results { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 0; }
+.voice-option { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 5px; padding: 7px; border: 1px solid var(--ds-border); border-radius: 7px; min-width: 0; animation: voice-row-in 300ms both; animation-delay: var(--delay); transition: opacity 200ms, background 200ms, border-color 200ms; }
+.voice-number { grid-row: span 2; align-self: center; color: var(--ds-primary); font-size: 16px; }
+.voice-name, .voice-author { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voice-author { font-size: 10px; color: var(--ds-text-secondary); }
+.voice-option.chosen { background: color-mix(in srgb,var(--ds-primary) 15%,transparent); border-color: var(--ds-primary); }
+.voice-option.unselected { opacity: .2; }
+.voice-message { line-height: 1.6; }
+.voice-footer { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; color: var(--ds-text-secondary); }
+.voice-track { height: 3px; background: var(--ds-layer-1); border-radius: 4px; overflow: hidden; }
+.voice-countdown { height: 100%; background: var(--ds-primary); transform-origin: left; transition: background 300ms; }
+.voice-countdown.urgent { background: #ffad55; }
+@keyframes voice-row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .ncm-card,.voice-panel,.voice-music,.voice-option { transition: none; animation: none; } }
+
+.voice-selecting .danmaku-panel { bottom: 472px; transition: bottom 320ms cubic-bezier(.22,1,.36,1); }
+.voice-option.chosen, .voice-option.unselected { animation: none; }

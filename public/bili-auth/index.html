@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>B站登录 · 弹幕机</title>
+  <link rel="stylesheet" href="auth.css">
+  <script defer src="auth.js"></script>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">DANMAKU FRAME / 账号管理</div>
+    <h1>B站登录</h1>
+    <p class="intro">登录后接收完整昵称。使用哔哩哔哩 APP 扫码，并在手机上确认。</p>
+    <section class="status-card" aria-live="polite">
+      <span id="badge" class="badge">检测中</span>
+      <h2 id="account">正在读取登录状态</h2>
+      <p id="status"></p>
+      <p id="connection" class="muted"></p>
+      <p id="checked" class="muted"></p>
+    </section>
+    <section class="login-card">
+      <div id="qrPlaceholder" class="qr-placeholder">点击下方按钮生成登录二维码</div>
+      <img id="qr" width="256" height="256" alt="使用哔哩哔哩 APP 扫描此登录二维码" hidden>
+      <p id="qrStatus" role="status">二维码仅用于本机弹幕机登录</p>
+      <div class="actions">
+        <button id="generate">扫码登录</button>
+        <button id="check" class="secondary">重新检测</button>
+      </div>
+    </section>
+    <p class="footnote">登录成功后自动保存并重新连接弹幕，无需重启。凭证失效时会提示重新扫码；网络故障不会清除凭证。</p>
+  </main>
+</body>
+</html>
