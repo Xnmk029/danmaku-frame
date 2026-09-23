@@ -1,4 +1,22 @@
+import { createHash } from 'node:crypto';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
+import { getServerNow } from './server-time.mjs';
+
+/**
+ * 用「校准后的服务器时间」生成 Sec-MS-GEC 令牌，替换 msedge-tts 内置实现。
+ * 库内置版本直接取本机 Date.now()：本机时钟偏差超过几分钟时微软握手一律 403
+ * （msedge-tts 2.0.7 无官方修复，npm 上已是最新版）。令牌算法本身与库保持一致：
+ * SHA-256(WindowsTicks(按5分钟取整) + TrustedClientToken) 大写十六进制。
+ */
+MsEdgeTTS.generateSecMsGec = async trustedClientToken => {
+  const ticks = Math.floor((await getServerNow()) / 1000) + 11644473600;
+  const rounded = ticks - (ticks % 300);
+  const windowsTicks = rounded * 10000000;
+  return createHash('sha256')
+    .update(`${windowsTicks}${trustedClientToken}`)
+    .digest('hex')
+    .toUpperCase();
+};
 
 const XML_ESCAPES = {
   '&': '&amp;',

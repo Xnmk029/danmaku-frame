@@ -23,4 +23,9 @@ livecontrol/dist/
 livecontrol/dist-v2/
 livecontrol/build/
 livecontrol/renderer/bundle.js
+livecontrol/renderer/float-bundle.js
+livecontrol/renderer/bundle-check.js
 livecontrol/LiveControl.sln
+
+# Local preview and packaging checks
+tmp/

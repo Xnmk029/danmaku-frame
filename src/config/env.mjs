@@ -91,6 +91,7 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
     wsAuthToken: env.WS_AUTH_TOKEN?.trim() || '',
     maxWsMessageBytes: asInteger(env.WS_MAX_MESSAGE_BYTES, 16_384, { min: 1024, max: 1_048_576 }),
     bilibili: {
+      authFile: path.resolve(projectRoot, 'data/bilibili-auth.json'),
       cookie,
       uid: asInteger(env.BILIBILI_UID, 0, { max: Number.MAX_SAFE_INTEGER }),
       buvid: env.BILIBILI_BUVID?.trim() || '',
@@ -105,6 +106,9 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
     },
     amll: {
       enabled: asBoolean(env.NCM_ENABLED, true),
+      source: ['auto', 'amll', 'smtc'].includes(env.NCM_SOURCE?.trim()) ? env.NCM_SOURCE.trim() : 'auto',
+      smtcAppPattern: env.NCM_SMTC_APP_PATTERN?.trim() || 'cloudmusic|netease|网易云',
+      smtcIntervalMs: asInteger(env.NCM_SMTC_INTERVAL_MS, 1000, { min: 500, max: 10000 }),
       // server: 监听端口接收 AMLL-WS-Connector 推送（推荐）；client: 连接 AMLL Player
       mode: env.AMLL_MODE?.trim() === 'client' ? 'client' : 'server',
       wsUrl: env.AMLL_WS_URL?.trim() || 'ws://127.0.0.1:11444',
@@ -127,8 +131,8 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
     tts: {
       // 弹幕朗读（Edge TTS 在线合成 + Windows 本地播放）
       enabled: asBoolean(env.TTS_ENABLED, false),
-      // 引擎：edge（微软 Edge 在线）| mimo（小米 MiMo-TTS v2.5）
-      provider: env.TTS_PROVIDER?.trim() || 'edge',
+      // 引擎路由：edge（全 Edge）| mimo（全 MIMO）| hybrid（粉丝牌/白名单 → MIMO，其余 → Edge）
+      provider: ['edge', 'mimo', 'hybrid', 'fish'].includes(env.TTS_PROVIDER?.trim()) ? env.TTS_PROVIDER.trim() : 'edge',
       voice: env.TTS_VOICE?.trim() || 'zh-CN-XiaoxiaoNeural',
       rate: env.TTS_RATE?.trim() || '+0%',
       pitch: env.TTS_PITCH?.trim() || '+0Hz',
@@ -138,6 +142,14 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       mimoApiKey: env.MIMO_API_KEY?.trim() || '',
       mimoBaseUrl: env.MIMO_API_BASE_URL?.trim() || 'https://api.xiaomimimo.com/v1',
       mimoVoice: env.MIMO_VOICE?.trim() || 'mimo_default',
+      fishApiKey: env.FISH_AUDIO_API_KEY?.trim() || '',
+      fishBaseUrl: env.FISH_AUDIO_BASE_URL?.trim() || 'https://api.fish.audio',
+      fishProxyUrl: env.FISH_AUDIO_PROXY_URL?.trim() || '',
+      fishModel: env.FISH_AUDIO_MODEL?.trim() || 's2.1-pro',
+      fishBlockedVoices: asList(env.TTS_FISH_BLOCKED_VOICES),
+      fishVoice: env.FISH_AUDIO_REFERENCE_ID?.trim() || '',
+      fishTimeoutMs: asInteger(env.FISH_AUDIO_TIMEOUT_MS, 30000, { min: 1000, max: 120000 }),
+      synthConcurrency: asInteger(env.TTS_SYNTH_CONCURRENCY, 3, { min: 1, max: 6 }),
       maxTextLength: asInteger(env.TTS_MAX_TEXT_LENGTH, 60, { min: 10, max: 500 }),
       skipCommands: asBoolean(env.TTS_SKIP_COMMANDS, true),
       blockedUids: new Set(asList(env.TTS_BLOCKED_UIDS)),
@@ -148,13 +160,34 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       gainPercent: asInteger(env.TTS_GAIN_PERCENT, 100, { min: 100, max: 150 }),
       // 朗读前缀：粉丝牌 → 用户名；舰长 → "舰长"
       readPrefix: asBoolean(env.TTS_READ_PREFIX, true),
+      // 有粉丝牌或舰长的用户不读前缀（只朗读正文）
+      noPrefixForMedalGuard: asBoolean(env.TTS_NO_PREFIX_FOR_MEDAL_GUARD, false),
       // 音色-等级绑定：舰长专属音色 + 等级区间映射（音色必须属于 Edge 支持集）
       voiceGuard: env.TTS_VOICE_GUARD?.trim() || '',
       voiceTiers: parseVoiceTiers(env.TTS_VOICE_TIERS),
       // 用户级音色预设（最高优先级）：TTS_VOICE_USERS=用户名:音色,uid:音色
       voiceUsers: parseVoiceUsers(env.TTS_VOICE_USERS),
+      // MIMO 通道白名单：无粉丝牌也可注册音色/走 MIMO 引擎（如主播自己挂不了自己的牌子）
+      mimoUids: new Set(asList(env.TTS_MIMO_UIDS)),
+      // 音色设计注册（弹幕指令绑定 UID→提示词，MIMO voicedesign 模型）
+      voiceDesign: {
+        enabled: asBoolean(env.TTS_VOICE_DESIGN_ENABLED, true),
+        promptMin: 4,
+        promptMax: asInteger(env.TTS_VOICE_DESIGN_PROMPT_MAX, 120, { min: 10, max: 500 }),
+        cooldownSeconds: asInteger(env.TTS_VOICE_DESIGN_COOLDOWN_SECONDS, 60, { min: 0, max: 3600 }),
+        maxUsers: asInteger(env.TTS_VOICE_DESIGN_MAX_USERS, 500, { min: 1, max: 10000 }),
+        registryFile: path.resolve(projectRoot, env.TTS_VOICE_DESIGN_FILE?.trim() || 'data/voice-designs.json'),
+      },
       audioFile: path.resolve(projectRoot, env.TTS_AUDIO_FILE?.trim() || 'data/tts/current.mp3'),
       stateFile: path.resolve(projectRoot, env.TTS_STATE_FILE?.trim() || 'data/tts-state.json'),
+    },
+    // 外挂 LLM（SenseNova 6.8 Flash Lite，OpenAI 兼容）：音色设计提示词细化 / 弹幕情绪修正
+    llm: {
+      apiKey: env.SENSENOVA_API_KEY?.trim() || env.LLM_API_KEY?.trim() || '',
+      baseUrl: env.LLM_BASE_URL?.trim() || 'https://token.sensenova.cn/v1',
+      model: env.LLM_MODEL?.trim() || 'sensenova-6.8-flash-lite',
+      timeoutMs: asInteger(env.LLM_TIMEOUT_MS, 8000, { min: 1000, max: 60000 }),
+      voiceRefine: asBoolean(env.LLM_VOICE_REFINE, true),
     },
     autoRestart: {
       enabled: asBoolean(env.AUTO_RESTART_ENABLED, true),

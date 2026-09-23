@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { requestBili } from './auth.mjs';
 
 /**
  * B站 WBI 签名（bilive-danmaku 方案）：
@@ -11,8 +12,6 @@ const MIXIN_KEY_ENC_TAB = [
   61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
   36, 20, 34, 44, 52,
 ];
-
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 function getMixinKey(orig) {
   return MIXIN_KEY_ENC_TAB.map(n => orig[n]).join('').slice(0, 32);
@@ -47,29 +46,29 @@ export async function getBuvid3(cookie = '') {
 
 /** 从 nav 接口取 wbi keys；SESSDATA 失效返回 null。 */
 export async function getWbiKeys(cookie = '') {
-  try {
-    const response = await fetch('https://api.bilibili.com/x/web-interface/nav', {
-      headers: { 'User-Agent': USER_AGENT, Cookie: cookie, Referer: 'https://www.bilibili.com/' },
-      signal: AbortSignal.timeout(8000),
-    });
-    const payload = await response.json();
-    if (payload?.code !== 0 || !payload?.data?.wbi_img) return null;
+    if (!cookie) return null;
+    const { payload } = await requestBili('https://api.bilibili.com/x/web-interface/nav', cookie);
+    if (payload.code === -101 || (payload.code === 0 && payload.data?.isLogin === false)) return null;
+    if (payload.code !== 0 || payload.data?.isLogin !== true || !payload.data?.mid || !payload.data?.wbi_img) {
+      throw new Error(`登录校验暂不可用（code=${Number(payload.code)}）`);
+    }
     const { img_url: imgUrl, sub_url: subUrl } = payload.data.wbi_img;
     const imgKey = imgUrl.slice(imgUrl.lastIndexOf('/') + 1, imgUrl.lastIndexOf('.'));
     const subKey = subUrl.slice(subUrl.lastIndexOf('/') + 1, subUrl.lastIndexOf('.'));
-    return { imgKey, subKey };
-  } catch {
-    return null;
-  }
+    return { imgKey, subKey, uid: payload.data.mid };
 }
 
 /** 为 getDanmuInfo 生成带 wbi 签名的完整 URL；SESSDATA 无效时返回 null（降级匿名请求）。 */
-export async function buildDanmuInfoUrl(roomId, cookie = '', buvid3 = '') {
+export async function buildDanmuInfoRequest(roomId, cookie = '') {
   const keys = await getWbiKeys(cookie);
   if (!keys) return null;
   const params = { id: roomId, type: 0, web_location: 444.8 };
   const signed = encWbi(params, keys.imgKey, keys.subKey);
-  return `https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?${signed}`;
+  return { url: `https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?${signed}`, uid: keys.uid };
+}
+
+export async function buildDanmuInfoUrl(roomId, cookie = '') {
+  return (await buildDanmuInfoRequest(roomId, cookie))?.url || null;
 }
 
 export { encWbi, getMixinKey };

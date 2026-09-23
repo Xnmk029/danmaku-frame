@@ -88,6 +88,10 @@ export function normalizeBiliCommand(payload) {
 
   if (payload.cmd === 'SEND_GIFT') {
     const data = payload.data || {};
+    const medalInfo = data.medal_info || {};
+    const medal = medalInfo.medal_name
+      ? { name: medalInfo.medal_name, lv: medalInfo.medal_level || 0 }
+      : null;
     return {
       type: 'gift',
       uid: String(data.uid || ''),
@@ -95,20 +99,91 @@ export function normalizeBiliCommand(payload) {
       text: `赠送了 ${data.giftName || '礼物'} x${data.num || 1}`,
       giftName: data.giftName || '礼物',
       giftCount: Number(data.num || 1),
-      price: Number(data.price || 0),
+      price: Number(data.price || 0), // 金瓜子（1000 = 1 元）
+      medal,
+      guard: Number(medalInfo.guard_level || data.guard_level || 0),
       receivedAt: Date.now(),
     };
   }
 
   if (payload.cmd === 'SUPER_CHAT_MESSAGE') {
     const data = payload.data || {};
+    const medalInfo = data.medal_info || {};
+    const medal = medalInfo.medal_name
+      ? { name: medalInfo.medal_name, lv: medalInfo.medal_level || 0 }
+      : null;
     return {
       type: 'sc',
       uid: String(data.uid || ''),
       user: data.user_info?.uname || '匿名用户',
       text: `[SC ¥${data.price || 0}] ${data.message || ''}`,
       message: String(data.message || ''),
-      price: Number(data.price || 0),
+      price: Number(data.price || 0), // 元
+      medal,
+      guard: Number(medalInfo.guard_level || 0),
+      receivedAt: Date.now(),
+    };
+  }
+
+  // 上舰（舰长/提督/总督开通或续费）
+  if (payload.cmd === 'GUARD_BUY') {
+    const data = payload.data || {};
+    const level = Number(data.guard_level || 0);
+    const guardName = { 1: '总督', 2: '提督', 3: '舰长' }[level] || data.gift_name || '大航海';
+    const count = Number(data.num || data.gift_num || 1);
+    return {
+      type: 'guard',
+      uid: String(data.uid || ''),
+      user: data.username || data.uname || '匿名用户',
+      text: `开通了${guardName}${count > 1 ? ` x${count}` : ''}`,
+      guardLevel: level,
+      guardName,
+      count,
+      price: Number(data.price || 0), // 金瓜子
+      receivedAt: Date.now(),
+    };
+  }
+
+  // 进场/互动（进入直播间、关注、分享、点赞主播）
+  // 注：INTERACT_WORD_V2 走 protobuf（data.pb），JSON 无法解析，忽略。
+  if (payload.cmd === 'INTERACT_WORD') {
+    const data = payload.data || {};
+    const msgTypeLabels = {
+      1: '进入直播间', 2: '关注了主播', 3: '分享了直播间',
+      4: '特别关注了主播', 5: '互相关注', 6: '为主播点赞',
+    };
+    const fm = data.fans_medal || null;
+    const medal = fm?.medal_name
+      ? { name: fm.medal_name, lv: fm.medal_level || 0 }
+      : null;
+    return {
+      type: 'entry',
+      uid: String(data.uid || ''),
+      user: data.uname || '访客',
+      text: msgTypeLabels[Number(data.msg_type)] || '进入直播间',
+      msgType: Number(data.msg_type || 1),
+      medal,
+      guard: Number(fm?.guard_level || 0),
+      receivedAt: Date.now(),
+    };
+  }
+
+  // 数据栏：看过人数 / 点赞数
+  if (payload.cmd === 'WATCHED_CHANGE') {
+    const data = payload.data || {};
+    return {
+      type: 'watched',
+      count: Number(data.num || 0),
+      text: String(data.text_large || data.text_small || ''),
+      receivedAt: Date.now(),
+    };
+  }
+
+  if (payload.cmd === 'LIKE_INFO_V3_UPDATE') {
+    const data = payload.data || {};
+    return {
+      type: 'like',
+      count: Number(data.like_count || data.click_count || 0),
       receivedAt: Date.now(),
     };
   }

@@ -98,6 +98,7 @@ export function createWebSocketGateway({
     };
     clients.add(client);
     send(socket, songService.snapshot());
+    if (ttsService?.fishSelection) send(socket, ttsService.fishSelection.snapshot());
 
     socket.on('message', rawMessage => {
       const now = Date.now();
@@ -173,13 +174,16 @@ export function createWebSocketGateway({
       } else if (payload.action === 'tts.set_enabled' && ttsService) {
         ttsService.setEnabled(Boolean(payload.enabled));
       } else if (payload.action === 'tts.set_settings' && ttsService) {
-        ttsService.setSettings({
+        try { ttsService.setSettings({
           voice: payload.voice,
+          fishVoice: payload.fishVoice,
           rate: payload.rate,
           pitch: payload.pitch,
           volume: payload.volume,
           playerVolume: payload.playerVolume,
-        });
+        }); } catch (error) {
+          send(socket, { type: 'error', code: 'INVALID_TTS_SETTINGS', message: error.message });
+        }
       } else if (payload.action === 'tts.test' && ttsService) {
         ttsService.speakTest(payload.text);
       } else if (payload.action === 'tts.skip' && ttsService) {

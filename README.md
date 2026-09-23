@@ -24,7 +24,7 @@
 - **丰富可调参数与本地持久化**
   - 实时自定义面板宽度 (W)、弹幕字体大小 (F) 与等宽/黑体/中文字体系列。
   - 支持快速调色盘与 HTML5 颜色选择器。
-  - 登录凭证仅从服务端 `.env` 读取，不进入浏览器 URL 或 `localStorage`。
+  - 支持 B站 APP 扫码登录，凭证保存在服务端，不进入浏览器 URL 或 `localStorage`。
 
 - **开场待机倒计时页 (standby)**
   - 阈限空间式开场：三层 Z 轴（背景鸽子群 / 中央倒计时 / 前景弹幕+粒子），异步循环防重复。
@@ -109,26 +109,32 @@ server.mjs ──▶ src/app.mjs（装配全部子系统）
                 ├── tts/                  ← 弹幕朗读（Edge TTS）
                 ├── ncm/                  ← AMLL 网易云播放信息（server/client 双模式）
                 ├── obs/obs-proxy.mjs     ← OBS 场景切换联动
+                ├── interaction/interaction-service.mjs  ← 互动面板（事件缓冲 + 数据栏统计 + 快照）
                 └── platform/windows-media-controller.mjs  ← 媒体键模拟
 supervisor.mjs ──▶ 守护入口（spawn server.mjs，崩溃自动重启，读 data/auto-restart.json）
 ```
 
-### 弹幕朗读（Edge TTS）链路 —— 改动时的文件地图
+### 弹幕朗读（Edge / MIMO TTS）链路 —— 改动时的文件地图
 
 | 职责 | 文件 | 说明 |
 | --- | --- | --- |
-| 配置项 | `src/config/env.mjs`（`tts:` 块） | `TTS_*` 环境变量，解析为中心配置 |
+| 配置项 | `src/config/env.mjs`（`tts:` 块） | `TTS_*` 环境变量，解析为中心配置；新增 `TTS_PROVIDER=hybrid`、`TTS_MIMO_UIDS`、`TTS_VOICE_DESIGN_*` |
 | 在线合成 | `src/tts/edge-tts.mjs` | msedge-tts 封装；`setParameters()` 热更新音色/语速/音调 |
+| MIMO 合成 | `src/tts/mimo-tts.mjs` | 小米 MiMo-TTS v2.5；支持 `designPrompt` → `mimo-v2.5-tts-voicedesign` 模型 |
+| 音色设计注册表 | `src/tts/voice-registry.mjs` | UID → 提示词（+原文 rawPrompt）；持久化 `data/voice-designs.json` |
+| 外挂 LLM | `src/llm/sensenova.mjs` `src/llm/voice-prompts.mjs` | SenseNova OpenAI 兼容 client；`设计音色` 描述 → MiMo voicedesign 细化提示词（`LLM_VOICE_REFINE` 开关） |
 | 本地播放 | `src/tts/windows-player.mjs` + `scripts/tts-player.ps1` | 常驻 PowerShell 播放器；stdin 指令 `PLAY/STOP/VOLUME/EXIT`；**改指令协议需两端同步** |
-| 业务服务 | `src/tts/tts-service.mjs` | 过滤/去重/队列/命令（朗读开·关·跳过）/试听/持久化 `data/tts-state.json` |
-| 对外端点 | `src/transport/http-server.mjs` | `/api/tts/state` `enabled` `settings` `test` `skip` |
+| 业务服务 | `src/tts/tts-service.mjs` | 过滤/去重/队列/命令（朗读开·关·跳过）/音色设计指令/试听/持久化 `data/tts-state.json`；`resolveVoiceProfile()` 按 provider/粉丝牌/白名单路由双引擎 |
+| 指令解析 | `src/danmaku/voice-commands.mjs` | `注册音色/删除音色/我的音色` 等观众级指令解析 |
+| 对外端点 | `src/transport/http-server.mjs` | `/api/tts/state` `enabled` `settings` `test` `skip` `provider` `voice-designs` |
 | WS 指令 | `src/transport/websocket-gateway.mjs` | `tts.get_state` `set_enabled` `set_settings` `test` `skip` |
-| 装配 | `src/app.mjs` | 注入 engine/player/service；`start()` 启播放器 |
+| 装配 | `src/app.mjs` | 注入 engines/player/service/registry；`start()` 启播放器 |
 | 自检 | `scripts/speak-test.mjs` | 命令行试听 |
 
 ### 功能 ↔ 文件索引（改哪查哪）
 
-- **B站弹幕协议**：`src/bili/`（client 连接/心跳/重连，codec 拆包 Brotli/Zlib，normalizer 事件标准化）→ 弹幕事件 `{type:'danmaku', uid, user, text, ...}` 经 gateway 广播。
+- **B站弹幕协议**：`src/bili/`（client 连接/心跳/重连/发弹幕 `msg/send`，codec 拆包 Brotli/Zlib，normalizer 事件标准化）→ 事件 `{type: 'danmaku'|'gift'|'sc'|'guard'|'entry'|'watched'|'like'|'popularity', ...}` 经 gateway 广播。
+- **直播互动面板**（LiveControl「直播互动」tab）：`src/interaction/interaction-service.mjs` 环形缓冲 + 统计；`GET /api/interaction/state` 快照、`POST /api/danmaku/send` 代发弹幕（需登录态 Cookie + `bili_jct`）。
 - **弹幕命令扩展**：`src/danmaku/command-parser.mjs`（点歌命令表）+ `src/song-request/song-service.mjs`（执行/权限/队列）+ `src/tts/tts-service.mjs`（朗读命令）。
 - **静态页面**：根目录 5 个 HTML 由 http-server 直出；`public/` 目录同理。**页面与后端解耦，改页面无需重启服务端进程**（逐请求读盘）。
 - **测试配套**：`tests/*.test.mjs`（node --test），新增模块必须带测试；`npm test` 全量回归。
@@ -146,6 +152,8 @@ supervisor.mjs ──▶ 守护入口（spawn server.mjs，崩溃自动重启，
 3. `data/` 下状态文件（song-state / tts-state / auto-restart）是唯一持久化通道；改结构需兼容旧文件。
 4. 播放器子进程协议变更（PS1 脚本）与 Node 侧必须同步修改、同步测试。
 5. `supervisor.mjs` 是推荐入口（崩溃自动重启）；`server.mjs` 仍可直接运行（无守护）。
+6. WS 广播对全部订阅者无差别推送；新增事件类型时须确认各消费页的白名单：`index.html` 仅上屏 `danmaku/gift/sc`（其余事件有 `text` 字段会以「匿名黑客」噪音渲染）、`standby.html` 仅 `danmaku`、`matrix-danmaku.html` 关键词过滤。
+7. 直播中心管理接口 `/api/live/*`（info/areas/update/news/cover/start/stop）由 `BiliLiveClient` 承载，写操作一律走 `_livePost`（统一 CSRF + 错误码归一）；开播返回 `rtmp.addr`/`rtmp.code`，推流密钥每次开播更换。
 
 ---
 
@@ -210,19 +218,38 @@ WebSocket 弹幕中继服务: ws://localhost:7789
 
    ```env
    TTS_ENABLED=true
-   TTS_VOICE=zh-CN-XiaoxiaoNeural   # 云希 zh-CN-YunxiNeural / 云扬 zh-CN-YunyangNeural ...
+   TTS_PROVIDER=hybrid              # edge（全 Edge） / mimo（全 MIMO） / hybrid（粉丝牌/白名单→MIMO，其余→Edge）
+   TTS_VOICE=zh-CN-XiaoxiaoNeural   # Edge 音色：云希/云扬...
+   MIMO_VOICE=mimo_default          # MIMO 预置音色
    TTS_RATE=+0%
    TTS_PITCH=+0Hz
    TTS_PLAYER_VOLUME=100            # 本机扬声器音量 0-100
+   MIMO_API_KEY=你的MIMO_KEY        # MIMO 与音色设计必需
    BILIBILI_OWNER_UID=你的UID       # 弹幕「朗读开/关/跳过」仅主播/房管可用
+   TTS_MIMO_UIDS=                   # 无粉丝牌白名单（如主播自己）
+   TTS_VOICE_DESIGN_ENABLED=true    # 弹幕指令注册音色设计
+   # 可选：外挂 LLM（SenseNova）把抽象描述细化为 voicedesign 提示词；不配则直存原文
+   SENSENOVA_API_KEY=你的SenseNova_KEY
+   LLM_MODEL=sensenova-6.8-flash-lite
+   LLM_VOICE_REFINE=true
    ```
 
-2. 启动服务（`npm start` 或 `npm run supervised`）。弹幕朗读的调音界面（音色/语速/音调/音量）
+2. 启动服务（`npm start` 或 `npm run supervised`）。弹幕朗读的调音界面（音色/语速/音调/音量/音色注册表）
    由 **`G:\产品\LiveControl`（直播控制台 Electron 应用）** 提供，服务端 API 已就绪：
-   `GET /api/tts/state`、`POST /api/tts/enabled`、`POST /api/tts/settings`、`POST /api/tts/test`、`POST /api/tts/skip`。
+   `GET /api/tts/state`、`POST /api/tts/enabled`、`POST /api/tts/settings`、`POST /api/tts/test`、`POST /api/tts/skip`、
+   `POST /api/tts/provider`、`GET /api/tts/voice-designs`、`POST /api/tts/voice-designs/delete`。
    看门狗页 `http://127.0.0.1:7788/看门狗.html` 的 SYSTEM 面板提供开关入口。
 
-3. 命令行自检语音输出：
+3. **观众级音色设计指令**（粉丝牌/舰长/房管/TTS_MIMO_UIDS 白名单可用）：
+
+   - `设计音色 <描述>` — 绑定 UID 到 MiMo `mimo-v2.5-tts-voicedesign` 音色设计提示词，确认朗读即为试听。
+     配置了 `SENSENOVA_API_KEY` 时先由 LLM 把抽象描述（如「派大星」「萝莉音」）细化为多维度音色描述
+     （年龄/音色质感/口音/语速/气质），注册表同时保留原文；LLM 不可用或超时自动回退原文
+   - `我的音色` — 用已注册音色朗读当前提示词摘要
+   - `删除音色` — 删除自己的注册
+   - `删除音色 <uid>` — 主播/房管删除他人
+
+4. 命令行自检语音输出：
 
    ```bash
    node scripts/speak-test.mjs "欢迎来到直播间" zh-CN-YunxiNeural
@@ -302,3 +329,84 @@ http://127.0.0.1:7788/public/ncm-nowplaying/nowplaying.html
 ## 开源许可证
 
 本项目采用 [MIT License](LICENSE) 开源许可证。
+
+## B站扫码登录与登录状态（2026-09-10）
+
+打开 `http://127.0.0.1:7788/public/bili-auth/`（端口以实际配置为准），点击“扫码登录”，使用哔哩哔哩 APP 扫描并在手机上确认。LiveControl 源码版的顶部也有“B站扫码登录”入口及登录状态。现有已打包的旧版 LiveControl 可直接使用上述浏览器入口。
+
+- 扫码成功后先调用 B站 nav 验证账号，再原子保存完整 Cookie 和 refresh token 至 `data/bilibili-auth.json`，并立即让已订阅的弹幕连接重新鉴权，无需重启。
+- 启动时优先读取保存的扫码凭证，无保存文件时兼容父目录 `.env` 中的 `BILIBILI_COOKIE` / `BILIBILI_SESSDATA`。扫码后的账号 UID 取自 B站验证结果，不沿用旧账号 UID。
+- 每 60 秒检查登录状态，区分有效、失效、未配置和网络故障。网络或风控错误保留凭证并重试，不误判为退出登录。
+- 游客连接不缓存；检测到账号有效时，游客连接会自动重新鉴权。健康的登录态连接不会被每分钟强制重连。
+- WebSocket 鉴权响应必须为 `code: 0` 才报告成功；失败会清理连接 token 并重试。登录有效不代表 B站保证每条消息都提供完整昵称。
+- 登录 API 只允许本机页面访问。扫码密钥不返回浏览器；Cookie / refresh token 不出现在 API 状态、URL 或浏览器存储中。`data/` 不作为静态文件提供。
+- 本版保存 refresh token，但尚不执行 B站 Cookie 自动续期；被服务端撤销或过期的凭证仍需要重新扫码。不要把状态检测或连接恢复理解为永久免登录。
+
+排查入口：`/api/bili-auth/state` 提供登录状态和弹幕连接身份；`/healthz` 提供不含凭证的简要状态。不要仅根据“连接成功”判断是否登录。登录文件属于敏感本地状态，请勿提交或分享。
+
+## 网易云 SMTC 与 Fish Audio（2026-09-22）
+
+### 歌曲显示：Windows SMTC
+
+默认 `NCM_SOURCE=auto`：优先使用已有 AMLL 播放信息，没有 AMLL 歌曲数据时回退到网易云音乐的 Windows SMTC 会话。SMTC 不依赖 BetterNCM 或 AMLL 插件。网易云客户端需开启系统媒体控制/SMTC 功能（设置名称因版本而异）。
+
+- 读取歌名、歌手、专辑、封面、总时长、播放进度、暂停/恢复状态。Windows 10 1809 或更新版本可用。
+- 默认只匹配 `cloudmusic|netease|网易云`，不会把浏览器视频或其他播放器显示到边框。
+- 主边框、待机页和独立 `public/ncm-nowplaying/nowplaying.html` 继续消费相同的 `ncm.playback` 消息，无需修改 OBS 浏览器源 URL。主边框沿用暂停时隐藏歌曲卡片的行为。
+- 可在父目录 `OBS/.env` 设置 `NCM_SOURCE=smtc` 强制使用 SMTC，或 `NCM_SOURCE=amll` 仅使用旧方案。`NCM_SMTC_APP_PATTERN` 可调整会话名称匹配，`NCM_SMTC_INTERVAL_MS` 默认 1000。
+- 只在有歌曲显示订阅者时启动隐藏的 PowerShell 读取进程；最后一个订阅者退出后停止。进程故障会重试，超时会清除旧歌曲，避免残留。
+- 诊断：`GET /api/ncm/state` 返回当前来源、播放状态与 SMTC 状态。没有打开边框等订阅页面时，状态为未启动是正常的。
+- 独立读取检查：在 Windows PowerShell 运行 `powershell.exe -NoProfile -File scripts/smtc-watch.ps1 -Once`；无网易云匹配会话时返回现有 SourceAppUserModelId 列表。
+
+### 弹幕朗读：Fish Audio 官方云端
+
+在父目录 `OBS/.env` 配置（不要把密钥填入网页 URL 或发送到聊天）：
+
+```dotenv
+FISH_AUDIO_API_KEY=你的官方API密钥
+FISH_AUDIO_REFERENCE_ID=音色页面的32位reference_id
+FISH_AUDIO_MODEL=s2.1-pro
+FISH_AUDIO_BASE_URL=https://api.fish.audio
+FISH_AUDIO_TIMEOUT_MS=30000
+# 可选：默认读取 Windows 系统代理；也可填 http://127.0.0.1:端口 或 direct
+FISH_AUDIO_PROXY_URL=
+```
+
+重启弹幕服务后，在源码版 LiveControl 的“弹幕朗读”中选择“Fish Audio（云端）”。音色 ID 可在面板修改并持久化，点击试听验证。已有的运行时 provider 设置优先于 `TTS_PROVIDER`；切换引擎请使用面板或 `/api/tts/provider`。
+
+- 接口为 `POST /v1/tts`，Bearer 鉴权、`model` 请求头、`reference_id` 指定音色，接收二进制 MP3 后复用 Windows 播放队列。
+- 支持原有过滤、去重、排队、试听、跳过、播放音量；语速映射到 Fish `prosody.speed`（0.5–2）。音调与 Edge 增益不发送到 Fish。
+- Fish 全量模式与 Edge、MIMO、既有 Hybrid 模式并列。Hybrid 下已绑定 Fish 音色的用户优先走 Fish，其余用户仍按原来的 Edge/MIMO 规则分流；MIMO 的音色设计提示词不会传给 Fish。用户/舰长/等级音色绑定在 Fish 模式下仅接受 Fish 音色 ID，其他引擎的音色名会回退到 Fish 默认音色。
+- 没有密钥时切换会明确报错，不静默伪装为 Fish。401/402/403/422 不自动重试；429 与 5xx 最多重试一次。请求超时、空音频或错误格式不会进入播放器。
+- Windows 上自动使用当前系统代理连接 Fish API；如需指定代理或强制直连，设置 `FISH_AUDIO_PROXY_URL`。音色页面已删除或不可用时，试听会提示更换音色 ID。
+- 支持模型配置：`s1`、`s2-pro`、`s2.1-pro`、`s2.1-pro-free`、`drama-3-preview`。可用性、费用和限制以账号与官方说明为准，本项目默认不切换现有朗读引擎。
+
+接口依据：[Fish Audio TTS](https://docs.fish.audio/api-reference/endpoint/openapi-v1/text-to-speech)、[Microsoft SMTC 会话 API](https://learn.microsoft.com/en-us/uwp/api/windows.media.control.globalsystemmediatransportcontrolssessionmanager)。
+
+### Fish Audio 弹幕选音色
+
+观众发送 `音色 <音色页面的32位ID>`，即可为自己的真实 UID 绑定社区音色。接受 32 位十六进制 ID 和标准带连字符 UUID；请求 Fish API 时统一转为小写 32 位 ID。指令本身不朗读，不自动切换全局引擎；在 Fish Audio 或混合模式下，后续弹幕使用该用户绑定音色。绑定保存在 TTS 状态文件中，重启保留，不依赖 MIMO 音色设计开关；绑定或更换音色沿用音色注册资格：普通观众需有粉丝牌，舰长、主播/房管及 TTS_MIMO_UIDS 白名单沿用原有豁免。无资格的指令不朗读、不修改已有绑定；查询和删除自己的绑定不要求粉丝牌。
+
+Fish 模式或混合模式下已绑定 Fish 音色的用户可发 `我的音色` 查询、`删除音色` 或 `重置音色` 恢复默认；主播/房管可用 `删除音色 UID` 删除指定用户绑定。沿用音色指令冷却（默认 60 秒，主播/房管豁免）。格式校验通过仅表示绑定已保存，音色是否存在、可访问需以实际 Fish 合成响应为准。
+
+### 按名称搜索 Fish 社区音色
+
+有资格的观众发送 `音色 派大星` 或 `搜索音色 派大星`。歌曲卡暂时展示搜索状态，再显示最多三条名称、作者和中文编号；发送 `选择音色 一`（二/三或 1/2/3 也支持）完成自己的绑定。选择不受搜索指令的 60 秒冷却阻挡，权限仍与音色注册一致。
+
+候选完全入场后倒计时 20 秒，最后 5 秒进度条变暖色；选中行高亮，约 2 秒后恢复最新歌曲。无结果、失败和超时都会自动退场；无歌曲时结束后隐藏。多名观众排队（最多 5 人等待），每人只保留一个请求，轮到自己才开始搜索和计时。重新连接边框时同步当前候选及剩余时间。
+
+客户端入口：`public/voice-selection/card.js`、`card.css`；服务端流程：`src/tts/fish-selection.mjs`。更新后需重启弹幕服务并刷新 OBS 的边框浏览器源。搜索与绑定不调用付费合成，实际朗读仍受 Fish 账户额度影响。
+
+### 并行合成与顺序播放
+
+默认 `TTS_SYNTH_CONCURRENCY=3`（可配置 1～6）。Fish/MIMO 最多三条同时合成，前一条播放时提前准备后面的音频；播放器始终按入队顺序逐条播放，合成完成顺序不影响朗读顺序。Edge 共用有状态连接，同一 Edge 引擎仅单路合成，但可与 Fish/MIMO 并行，并可在上一条播放时合成下一条。
+
+跳过会立即让出当前播放位置；关闭朗读会清空待播音频，迟到的结果不会再播放。已发出的云端请求可能继续完成，且按服务商规则计费；取消的在途请求仍计入并发上限，避免快速开关时堆积请求。队列继续保留最多八条等待弹幕，满时丢弃最旧等待项。
+
+`/api/tts/state` 增加 `synthConcurrency`、`synthesizingCount`、`readyCount`，可查看并发上限、在途合成数量和已就绪待播数量。音色与引擎按入队时的选择保存，后续改绑不会改变已入队弹幕。
+
+### 音色指令统一入口
+
+`注册音色 名称`、`音色注册 名称`、`选择音色 名称`、`音色 名称` 等价，统一搜索 Fish 社区音色；参数是合法音色 ID 时直接绑定。`选择音色 一 / 二 / 三` 仍用于候选编号选择。支持空格、英文冒号和中文冒号分隔。MIMO 提示词设计使用 `设计音色 描述`。原有粉丝牌权限、搜索冷却与候选选择流程保持一致。
+
+Fish 音色黑名单：`TTS_FISH_BLOCKED_VOICES` 使用逗号分隔音色 ID。重启服务后清除被屏蔽音色的旧绑定，搜索、ID 绑定、候选选择及合成均拦截；混合模式回到原 MIMO/Edge 规则，不屏蔽观众本人。

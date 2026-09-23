@@ -144,3 +144,89 @@ test('malformed msgExtra degrades gracefully', () => {
   assert.equal(event.bigEmote, null);
   assert.equal(event.text, '文本[未注册表情]');
 });
+
+test('normalizes SEND_GIFT with medal info', () => {
+  const event = normalizeBiliCommand({
+    cmd: 'SEND_GIFT',
+    data: {
+      uid: 42, uname: '送礼用户', giftName: '小花花', num: 5, price: 200,
+      medal_info: { medal_name: '鲸果', medal_level: 4, guard_level: 3 },
+    },
+  });
+  assert.equal(event.type, 'gift');
+  assert.equal(event.user, '送礼用户');
+  assert.equal(event.giftName, '小花花');
+  assert.equal(event.giftCount, 5);
+  assert.deepEqual(event.medal, { name: '鲸果', lv: 4 });
+  assert.equal(event.guard, 3);
+});
+
+test('normalizes SUPER_CHAT_MESSAGE with medal info', () => {
+  const event = normalizeBiliCommand({
+    cmd: 'SUPER_CHAT_MESSAGE',
+    data: {
+      uid: 7, price: 50, message: '醒目留言内容',
+      user_info: { uname: 'SC用户' },
+      medal_info: { medal_name: '鲸果', medal_level: 10 },
+    },
+  });
+  assert.equal(event.type, 'sc');
+  assert.equal(event.user, 'SC用户');
+  assert.equal(event.price, 50);
+  assert.equal(event.message, '醒目留言内容');
+  assert.deepEqual(event.medal, { name: '鲸果', lv: 10 });
+});
+
+test('normalizes GUARD_BUY to guard event', () => {
+  const event = normalizeBiliCommand({
+    cmd: 'GUARD_BUY',
+    data: { uid: 99, username: '新舰长', guard_level: 3, num: 1, price: 138000 },
+  });
+  assert.equal(event.type, 'guard');
+  assert.equal(event.user, '新舰长');
+  assert.equal(event.guardLevel, 3);
+  assert.equal(event.guardName, '舰长');
+  assert.equal(event.text, '开通了舰长');
+  assert.equal(event.price, 138000);
+});
+
+test('normalizes INTERACT_WORD to entry event with medal', () => {
+  const event = normalizeBiliCommand({
+    cmd: 'INTERACT_WORD',
+    data: {
+      uid: 555, uname: '进场用户', msg_type: 1,
+      fans_medal: { medal_name: '鲸果', medal_level: 4, guard_level: 3 },
+    },
+  });
+  assert.equal(event.type, 'entry');
+  assert.equal(event.user, '进场用户');
+  assert.equal(event.text, '进入直播间');
+  assert.deepEqual(event.medal, { name: '鲸果', lv: 4 });
+  assert.equal(event.guard, 3);
+});
+
+test('INTERACT_WORD maps non-entry msg_type labels', () => {
+  const event = normalizeBiliCommand({
+    cmd: 'INTERACT_WORD',
+    data: { uid: 1, uname: '观众', msg_type: 2 },
+  });
+  assert.equal(event.type, 'entry');
+  assert.equal(event.text, '关注了主播');
+});
+
+test('normalizes WATCHED_CHANGE and LIKE_INFO_V3_UPDATE stats', () => {
+  const watched = normalizeBiliCommand({
+    cmd: 'WATCHED_CHANGE',
+    data: { num: 1234, text_large: '1234人看过', text_small: '1234' },
+  });
+  assert.equal(watched.type, 'watched');
+  assert.equal(watched.count, 1234);
+  assert.equal(watched.text, '1234人看过');
+
+  const like = normalizeBiliCommand({
+    cmd: 'LIKE_INFO_V3_UPDATE',
+    data: { like_count: 678 },
+  });
+  assert.equal(like.type, 'like');
+  assert.equal(like.count, 678);
+});

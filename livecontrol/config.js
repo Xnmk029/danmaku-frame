@@ -30,6 +30,13 @@ const DEFAULTS = {
     password: '',         // 从 G:/产品/OBS/.env 自动读取，可在面板覆盖
     browserSource: '',    // 留空 = 自动查找含 standby.html 的浏览器源
   },
+  float: {
+    opacity: 0.92,        // 互动悬浮窗不透明度 0.3~1
+    locked: false,        // 鼠标穿透锁定
+    bounds: null,         // {x,y,width,height} 记忆位置
+    fontSize: 13,         // 弹幕字号 11~18
+    detailsCollapsed: false, // 低频 UI（设置/统计/筛选）折叠态
+  },
 };
 
 function load() {

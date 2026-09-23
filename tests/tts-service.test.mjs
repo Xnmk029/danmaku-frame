@@ -59,6 +59,16 @@ test('朗读前缀：舰长 → 舰长（用户名）：，有粉丝牌 → 用�
   assert.deepEqual(synths, ['舰长（舰长小明）：舰长晚上好', '铁粉小红，铁粉晚上好', '路人晚上好']);
 });
 
+test('粉丝牌/舰长可设置不读前缀', async () => {
+  const { service, calls } = createService({ noPrefixForMedalGuard: true });
+  service.handleDanmaku(danmaku('舰长晚上好', '10001', '舰长小明', { guard: 1, medal: { name: '粉丝团', lv: 5 } }));
+  service.handleDanmaku(danmaku('铁粉晚上好', '10002', '铁粉小红', { guard: 0, medal: { name: '粉丝团', lv: 3 } }));
+  service.handleDanmaku(danmaku('路人晚上好', '10003', '路人小李', { guard: 0, medal: null }));
+  await new Promise(resolve => setTimeout(resolve, 40));
+  const synths = calls.filter(item => item.op === 'synth').map(item => item.text);
+  assert.deepEqual(synths, ['舰长晚上好', '铁粉晚上好', '路人晚上好']);
+});
+
 test('用户级音色预设：UID/用户名匹配，优先级高于舰长与等级区间', () => {
   const { service } = createService({
     voiceGuard: 'zh-CN-YunyangNeural',

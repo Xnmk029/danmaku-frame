@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "electron .",
-    "build": "esbuild renderer/renderer.js --bundle --format=esm --outfile=renderer/bundle.js --log-level=warning",
+    "build": "esbuild renderer/renderer.js --bundle --format=esm --outfile=renderer/bundle.js --log-level=warning && esbuild renderer/float.js --bundle --format=esm --outfile=renderer/float-bundle.js --log-level=warning",
     "selftest": "electron . --selftest",
     "dist": "npm run build && electron-builder --win"
   },

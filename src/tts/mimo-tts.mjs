@@ -1,8 +1,13 @@
 /**
  * MIMO TTS 引擎（小米 MiMo-TTS v2.5，OpenAI 兼容接口）。
- * 接口与 EdgeTtsEngine 对齐：synthesize(text, {voice}) → Buffer(mp3)。
+ * 接口与 EdgeTtsEngine 对齐：synthesize(text, {voice, designPrompt}) → Buffer(mp3)。
  * 注意：MIMO 无 rate/pitch/volume 参数（面板滑块仅对 Edge 生效）。
+ * designPrompt（音色设计描述）存在时切到 mimo-v2.5-tts-voicedesign 模型：
+ * user 消息 = 音色描述（必填），assistant = 目标文本，不支持 audio.voice 预置音色。
  */
+const MIMO_TTS_MODEL = 'mimo-v2.5-tts';
+const MIMO_DESIGN_MODEL = 'mimo-v2.5-tts-voicedesign';
+const DEFAULT_STYLE_PROMPT = '请用自然、清晰、流畅的语气朗读以下内容。';
 const MIMO_VOICES = [
   { id: 'mimo_default', label: '默认音色 · 中文（冰糖）' },
   { id: '冰糖', label: '冰糖 · 中文女声' },
@@ -51,18 +56,19 @@ export class MimoTtsEngine {
   /**
    * 合成一条语音（失败自动重试 2 次，对齐 Edge 引擎的容错）。
    * @param {string} text 朗读文本
-   * @param {{voice?: string}} options 可选音色覆盖
+   * @param {{voice?: string, designPrompt?: string}} options 可选音色覆盖 / 音色设计描述
    * @returns {Promise<Buffer>} mp3 音频数据
    */
-  async synthesize(text, { voice } = {}) {
+  async synthesize(text, { voice, designPrompt } = {}) {
     if (!String(text).trim()) throw new Error('朗读文本为空');
     if (!this.apiKey) throw new Error('MIMO_API_KEY 未配置');
     const targetVoice = voice || this.voice;
+    const design = String(designPrompt || '').trim();
 
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        return await this.requestOnce(text, targetVoice);
+        return await this.requestOnce(text, targetVoice, design);
       } catch (error) {
         lastError = error;
         if (attempt < 2) {
@@ -73,15 +79,25 @@ export class MimoTtsEngine {
     throw lastError;
   }
 
-  async requestOnce(text, targetVoice) {
-    const body = {
-      model: this.model,
-      messages: [
-        { role: 'user', content: '请用自然、清晰、流畅的语气朗读以下内容。' },
-        { role: 'assistant', content: String(text) },
-      ],
-      audio: { format: 'mp3', voice: targetVoice },
-    };
+  async requestOnce(text, targetVoice, designPrompt) {
+    const body = designPrompt
+      ? {
+          // 音色设计模型：user = 音色描述（必填），assistant = 目标文本；不支持 audio.voice
+          model: MIMO_DESIGN_MODEL,
+          messages: [
+            { role: 'user', content: designPrompt },
+            { role: 'assistant', content: String(text) },
+          ],
+          audio: { format: 'mp3' },
+        }
+      : {
+          model: this.model || MIMO_TTS_MODEL,
+          messages: [
+            { role: 'user', content: DEFAULT_STYLE_PROMPT },
+            { role: 'assistant', content: String(text) },
+          ],
+          audio: { format: 'mp3', voice: targetVoice },
+        };
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);

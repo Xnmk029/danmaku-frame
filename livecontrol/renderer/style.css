@@ -451,6 +451,51 @@ body {
 .tts-recent .rec .rec-text { overflow: hidden; text-overflow: ellipsis; }
 .tts-recent .rec .rec-reason { color: var(--md-sys-color-error); flex: none; font-size: 10px; }
 
+/* 音色注册表 */
+.tts-designs {
+  border-top: 1px dashed var(--md-sys-color-outline-variant);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tts-designs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tts-designs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.tts-designs-list .design-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;
+}
+.tts-designs-list .design-user { color: var(--md-sys-color-primary); flex: none; }
+.tts-designs-list .design-uid { flex: none; font-family: "Cascadia Mono", Consolas, monospace; font-size: 10px; opacity: 0.7; }
+.tts-designs-list .design-prompt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.tts-designs-list .design-time { flex: none; font-size: 10px; opacity: 0.6; }
+.tts-designs-list .design-acts { flex: none; display: flex; gap: 0; }
+.tts-designs-list .design-acts md-icon-button { width: 28px; height: 28px; }
+.tts-designs-list .design-acts md-icon { font-size: 16px; }
+.tts-designs-list .design-empty { opacity: 0.6; }
+
+.tts-noprefix {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
 .tts-hint {
   font-size: 11px;
   color: var(--md-sys-color-on-surface-variant);
@@ -663,3 +708,423 @@ body {
   opacity: 0.5;
 }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+   直播互动面板（统一互动流 + 类型筛选）
+   ============================================================ */
+.ia-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0 24px 12px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low);
+  gap: 10px;
+}
+
+.ia-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ia-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ia-icon { font-size: 18px; color: var(--md-sys-color-primary); }
+.ia-room {
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.ia-stats {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ia-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.ia-stat md-icon { font-size: 15px; }
+.ia-stat b {
+  font-weight: 600;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  color: var(--md-sys-color-on-surface);
+}
+
+.ia-filters { flex: none; }
+
+/* ---- 消息流 ---- */
+.ia-feed-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+.ia-feed {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+  user-select: text;
+}
+.ia-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ia-tobottom {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 2;
+}
+
+/* 消息行：M3 emphasized 入场（fade + 上移） */
+.ia-msg {
+  font-size: var(--ia-font-size, 13px); /* 悬浮窗字号调节经 --ia-font-size 下发 */
+  line-height: 1.65;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  word-break: break-word;
+}
+.ia-enter { animation: ia-in 0.18s ease-out; }
+@keyframes ia-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.ia-body { display: inline; }
+.ia-uname { color: var(--md-sys-color-primary); font-weight: 500; }
+.ia-uname-dim { color: var(--md-sys-color-on-surface-variant); }
+.ia-dim { color: var(--md-sys-color-on-surface-variant); }
+.ia-msg-icon { font-size: 16px; color: var(--md-sys-color-primary); transform: translateY(3px); }
+
+/* 徽标：粉丝牌 / 主播 / 房管 / 大航海 */
+.ia-medal, .ia-tag {
+  display: inline-block;
+  padding: 0 6px;
+  margin-right: 4px;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 16px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.ia-medal {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+}
+.ia-tag-owner {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+.ia-tag-admin {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+.ia-tag-guard {
+  background: var(--md-lc-warning);
+  color: var(--md-lc-on-warning);
+}
+
+/* 付费/进场行的容器强调（elevated 卡片质感） */
+.ia-gift, .ia-guard {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.ia-sc {
+  background: var(--md-sys-color-tertiary-container);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.ia-sc .ia-uname { color: var(--md-sys-color-on-tertiary-container); }
+.ia-sc-text { color: var(--md-sys-color-on-tertiary-container); }
+.ia-sc-price {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--md-sys-color-tertiary);
+  color: var(--md-sys-color-on-tertiary);
+}
+.ia-entry { opacity: 0.75; font-size: 12px; }
+
+/* 表情图 */
+.ia-emot { vertical-align: -4px; margin: 0 1px; }
+.ia-emot-s { height: 20px; }
+.ia-emot-m { height: 32px; }
+.ia-emot-l { height: 56px; }
+.ia-bigemote { height: 64px; vertical-align: middle; }
+
+/* 类型筛选：chip 未选中的类型整体隐藏 */
+.ia-feed[data-hide~="danmaku"] .ia-msg[data-ftype="danmaku"],
+.ia-feed[data-hide~="gift"] .ia-msg[data-ftype="gift"],
+.ia-feed[data-hide~="sc"] .ia-msg[data-ftype="sc"],
+.ia-feed[data-hide~="guard"] .ia-msg[data-ftype="guard"],
+.ia-feed[data-hide~="entry"] .ia-msg[data-ftype="entry"] { display: none; }
+
+/* ---- 输入栏 ---- */
+.ia-inputbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ia-input {
+  flex: 1;
+  --md-outlined-text-field-container-height: 44px;
+}
+.ia-count {
+  flex: none;
+  font-size: 11px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.ia-count.over { color: var(--md-sys-color-error); }
+.ia-hint {
+  flex: none;
+  min-height: 14px;
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.75;
+}
+
+/* ============================================================
+   互动悬浮窗（float.html，独立顶层窗口）
+   ============================================================ */
+.float-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+.float-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 6px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.float-bar {
+  -webkit-app-region: drag;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 6px 14px;
+}
+.float-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.float-ctrl {
+  -webkit-app-region: no-drag;
+  display: flex;
+}
+.float-ctrl md-icon-button { --md-icon-button-icon-size: 18px; }
+.float-locked .float-shell { outline: 1px dashed var(--md-sys-color-outline-variant); }
+
+.float-controls {
+  -webkit-app-region: no-drag;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 8px;
+}
+.float-controls > md-icon {
+  font-size: 15px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.float-controls md-slider { flex: 1; }
+.float-controls md-icon-button { --md-icon-button-icon-size: 17px; }
+.float-controls b {
+  font-size: 11px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  color: var(--md-sys-color-on-surface-variant);
+  min-width: 34px;
+  text-align: right;
+}
+
+/* 折叠态：隐藏低频 UI（设置行/统计行/筛选 chips） */
+.float-compact .float-collapsible { display: none !important; }
+
+/* 消息右键菜单（去TA空间 / @TA） */
+.ia-ctx {
+  position: fixed;
+  z-index: 80;
+  min-width: 150px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  animation: ia-in 0.12s ease-out;
+}
+.ia-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.ia-ctx-item:hover:not([disabled]) { background: var(--md-sys-color-surface-container-highest); }
+.ia-ctx-item[disabled] { opacity: 0.38; cursor: default; }
+.ia-ctx-item md-icon { font-size: 16px; color: var(--md-sys-color-on-surface-variant); }
+.ia-msg { cursor: context-menu; }
+
+/* @提及 chip（官方协议 reply_mid/reply_uname 的可视化） */
+.ia-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  align-self: center;
+  padding: 0 4px 0 10px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ia-mention[hidden] { display: none; }
+.ia-mention-x {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+}
+.ia-mention-x:hover { color: var(--md-sys-color-error); }
+
+/* ============================================================
+   直播信息页（直播中心编辑 + 开播）
+   ============================================================ */
+.li-panel {
+  margin: 10px 16px 14px;
+  padding: 14px 16px 10px;
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.li-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.li-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.li-grid { display: flex; gap: 20px; align-items: flex-start; }
+.li-cover-wrap { flex: none; width: 200px; display: flex; flex-direction: column; gap: 6px; }
+.li-cover {
+  width: 200px;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--md-sys-color-surface-container);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 12px;
+}
+.li-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.li-form { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.li-row { display: flex; align-items: flex-start; gap: 10px; }
+.li-field { flex: 1; min-width: 0; }
+.li-select { flex: 1; min-width: 140px; }
+.li-row md-filled-tonal-button { flex: none; margin-top: 4px; }
+
+.li-stream { display: flex; gap: 10px; align-items: center; }
+.li-rtmp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--md-sys-color-surface-container);
+}
+.li-rtmp[hidden] { display: none; }
+.li-rtmp-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.li-rtmp-label { flex: none; font-size: 12px; color: var(--md-sys-color-on-surface-variant); }
+.li-rtmp-row code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--md-sys-color-on-surface);
+}
+.li-rtmp-row md-icon-button { --md-icon-button-icon-size: 16px; flex: none; }
+.li-rtmp-hint { font-size: 11px; color: var(--md-sys-color-on-surface-variant); }
+
+/* 顶栏开播开关 */
+.live-toggle {
+  -webkit-app-region: no-drag;
+  --md-text-button-label-text-size: 12px;
+  height: 28px;
+  padding: 0 10px;
+}
+.live-toggle.is-live {
+  --md-text-button-label-text-color: var(--md-sys-color-error);
+  --md-text-button-icon-color: var(--md-sys-color-error);
+}
+.live-toggle.is-live md-icon { animation: ia-in 0.4s ease-out; }
+
+/* 浮窗内复用互动面板：去掉外边距/圆角（窗口本身圆角透明） */
+.ia-panel-float {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border-radius: 0;
+  background: transparent;
+}
+.ia-panel-float .ia-head { padding-top: 0; }
