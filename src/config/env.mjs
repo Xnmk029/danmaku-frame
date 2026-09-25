@@ -154,6 +154,7 @@ export function loadConfig(projectRoot, runtimeEnv = process.env) {
       skipCommands: asBoolean(env.TTS_SKIP_COMMANDS, true),
       blockedUids: new Set(asList(env.TTS_BLOCKED_UIDS)),
       blockedKeywords: asList(env.TTS_BLOCKED_KEYWORDS).map(item => item.toLocaleLowerCase('zh-CN')),
+      stripKeywords: asList(env.TTS_STRIP_KEYWORDS),
       dedupeWindowMs: asInteger(env.TTS_DEDUPE_SECONDS, 10, { min: 0, max: 300 }) * 1000,
       cooldownMs: asInteger(env.TTS_COOLDOWN_SECONDS, 3, { min: 0, max: 300 }) * 1000,
       // 声音增益 100-150%：映射为 Edge SSML volume（+0% ~ +50%）

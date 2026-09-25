@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DanmakuTtsService, cleanupTtsText } from '../src/tts/tts-service.mjs';
+import { DanmakuTtsService, cleanupSpokenText, cleanupTtsText } from '../src/tts/tts-service.mjs';
 
 function createService(overrides = {}) {
   let clock = 1_000;
@@ -135,6 +135,53 @@ test('cleanupTtsText 去除表情与控制符并折叠空白', () => {
   assert.equal(cleanupTtsText('你好🎉世界\u200D❤️️ ！'), '你好世界 ！');
   assert.equal(cleanupTtsText('  多   个  空格  '), '多 个 空格');
   assert.equal(cleanupTtsText(''), '');
+});
+
+test('朗读正文只删除元数据确认的 B 站表情和配置的字面词', () => {
+  assert.equal(cleanupSpokenText('真的[跪了][跪了]好笑 [重要] A+B', {
+    emots: [{ key: '[跪了]' }],
+    stripKeywords: ['a+b'],
+  }), '真的好笑 [重要]');
+  assert.equal(cleanupSpokenText('文本[未注册表情]'), '文本[未注册表情]');
+  assert.equal(cleanupSpokenText('你好🎉 [妙啊]', { emots: [{ key: '[妙啊]' }] }), '你好');
+});
+
+test('B 站表情不进入朗读，纯表情和大表情跳过，普通方括号内容保留', async () => {
+  const { service, calls } = createService();
+  service.handleDanmaku(danmaku('真的[跪了][跪了]好笑', '11', '甲', { emots: [{ key: '[跪了]' }] }));
+  service.handleDanmaku(danmaku('[跪了]!!!', '12', '乙', { emots: [{ key: '[跪了]' }] }));
+  service.handleDanmaku(danmaku('大表情', '13', '丙', { bigEmote: { unique: 'official_120' } }));
+  service.handleDanmaku(danmaku('朗读关', '1', '主播', { bigEmote: { unique: 'official_121' } }));
+  service.handleDanmaku(danmaku('文本[未注册表情]', '14', '丁'));
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.deepEqual(calls.filter(item => item.op === 'synth').map(item => item.text), ['真的好笑', '文本[未注册表情]']);
+  assert.equal(service.stats.emptyText, 3);
+  assert.equal(service.state.enabled, true);
+});
+
+test('移除词只改变朗读正文，原文命令和整条屏蔽词仍生效', async () => {
+  const { service, calls } = createService({ stripKeywords: ['朗读关', '禁词', '[doge]', 'a+b'] });
+  service.handleDanmaku(danmaku('朗读关', '1'));
+  assert.equal(service.state.enabled, false);
+  service.setEnabled(true);
+  service.handleDanmaku(danmaku('这个禁词真好笑', '11'));
+  service.handleDanmaku(danmaku('点歌 夜曲', '12'));
+  service.handleDanmaku(danmaku('欢迎[doge]A+B世界', '13'));
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.deepEqual(calls.filter(item => item.op === 'synth').map(item => item.text), ['欢迎世界']);
+  assert.equal(service.stats.blockedKeyword, 1);
+  assert.equal(service.stats.commandSkipped, 1);
+});
+
+test('去表情后按实际朗读文本限长、去重，手动试听应用移除词', async () => {
+  const { service, calls } = createService({ maxTextLength: 6, stripKeywords: ['[doge]'] });
+  service.handleDanmaku(danmaku('你好' + '[跪了]'.repeat(20), '11', '甲', { emots: [{ key: '[跪了]' }] }));
+  service.handleDanmaku(danmaku('你好', '11', '甲'));
+  service.speakTest('测试[doge]欢迎');
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.deepEqual(calls.filter(item => item.op === 'synth').map(item => item.text), ['你好', '测试欢迎']);
+  assert.equal(service.stats.dedupeSkipped, 1);
+  assert.equal(service.stats.tooLong, 0);
 });
 
 test('开关关闭时不产生合成与播放调用', async () => {

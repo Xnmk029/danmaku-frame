@@ -48,6 +48,25 @@ export function cleanupTtsText(raw) {
   return text;
 }
 
+/** 仅清洗朗读正文：按 B 站元数据精确移除表情，再移除自定义字面词。 */
+export function cleanupSpokenText(raw, { emots = [], stripKeywords = [] } = {}) {
+  let text = String(raw || '');
+  if (Array.isArray(emots)) {
+    for (const key of new Set(emots.map(item => item?.key).filter(key => typeof key === 'string' && key))) {
+      text = text.split(key).join('');
+    }
+  }
+  if (Array.isArray(stripKeywords)) {
+    for (const item of stripKeywords) {
+      const keyword = typeof item === 'string' ? item.trim() : '';
+      if (!keyword) continue;
+      const escaped = keyword.replace(/[.*+?^$()|[\]{}\\]/g, '\\$&');
+      text = text.replace(new RegExp(escaped, 'giu'), '');
+    }
+  }
+  return cleanupTtsText(text);
+}
+
 /**
  * 弹幕朗读服务：订阅 B站弹幕事件 → 过滤（开关/命令/黑名单/去重/冷却）→
  * 串行队列 → Edge TTS 合成 → Windows 播放器朗读。
@@ -326,7 +345,7 @@ export class DanmakuTtsService extends EventEmitter {
 
   /** 试听：优先朗读最新收到的一条真实弹幕（无弹幕时用默认文案）。 */
   speakTest(text, profile = null) {
-    let sample = cleanupTtsText(text);
+    let sample = cleanupSpokenText(text, { stripKeywords: this.config.stripKeywords });
     if (!sample) {
       // 取最近一条真实弹幕作为试听样本（避免每次试听都是同一句固定文案）
       const lastRead = this.recent.find(entry => entry.action === 'read' && entry.text);
@@ -359,7 +378,7 @@ export class DanmakuTtsService extends EventEmitter {
   previewVoiceDesign(uid, text) {
     const entry = this.registry?.get(uid);
     if (!entry) throw new Error('该 UID 未注册音色');
-    const sample = cleanupTtsText(text) || '欢迎来到直播间，这是音色试听。';
+    const sample = cleanupSpokenText(text, { stripKeywords: this.config.stripKeywords }) || '欢迎来到直播间，这是音色试听。';
     const useMimo = Boolean(this.engines?.mimo);
     this.enqueue({
       uid: String(uid),
@@ -491,6 +510,12 @@ export class DanmakuTtsService extends EventEmitter {
     this.stats.danmakuReceived += 1;
     const baseEntry = { at: this.now(), user: event.user || '观众', text: String(event.text || '').slice(0, 60) };
 
+    if (event.bigEmote) {
+      this.stats.emptyText += 1;
+      this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '纯表情/无文本' });
+      return;
+    }
+
     const text = cleanupTtsText(event.text);
     if (!text) {
       this.stats.emptyText += 1;
@@ -511,10 +536,6 @@ export class DanmakuTtsService extends EventEmitter {
       return;
     }
 
-    // 朗读前缀：舰长 → "舰长"；有粉丝牌 → 用户名；都没有 → 无前缀
-    // （仅影响朗读文本，过滤/去重仍基于原文）
-    const readText = this.buildReadText(text, event);
-
     if (!this.state.enabled) {
       this.stats.disabled += 1;
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '朗读关闭' });
@@ -527,13 +548,6 @@ export class DanmakuTtsService extends EventEmitter {
     if (config.skipCommands && typeof config.isCommandText === 'function' && config.isCommandText(text)) {
       this.stats.commandSkipped += 1;
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '点歌等命令' });
-      return;
-    }
-
-    // 长度限制
-    if (config.maxTextLength && text.length > config.maxTextLength) {
-      this.stats.tooLong += 1;
-      this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: `超长(>${config.maxTextLength}字)` });
       return;
     }
 
@@ -550,17 +564,32 @@ export class DanmakuTtsService extends EventEmitter {
       return;
     }
 
+    // 控制、音色与点歌命令，以及整条屏蔽词均按原文判定；仅在进入朗读队列前清洗正文。
+    const spokenText = cleanupSpokenText(text, { emots: event.emots, stripKeywords: config.stripKeywords });
+    if (!spokenText || (spokenText !== text && !/[\p{L}\p{N}]/u.test(spokenText))) {
+      this.stats.emptyText += 1;
+      this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '纯表情/无文本' });
+      return;
+    }
+
+    // 长度限制以实际朗读正文为准，避免多个表情挤占文字长度。
+    if (config.maxTextLength && spokenText.length > config.maxTextLength) {
+      this.stats.tooLong += 1;
+      this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: `超长(>${config.maxTextLength}字)` });
+      return;
+    }
+
     const now = this.now();
 
-    // 同一文本连续刷屏去重（同一用户 10s 内相同文本；全局连续 3 次相同文本跳过）
+    // 去重以实际朗读正文为准，避免只变换表情的弹幕反复朗读同一句话。
     const prev = this.lastTextByUser.get(uid);
-    if (prev && prev.text === text && now - prev.at < (config.dedupeWindowMs || 10_000)) {
+    if (prev && prev.text === spokenText && now - prev.at < (config.dedupeWindowMs || 10_000)) {
       this.stats.dedupeSkipped += 1;
       this.state.skippedCount += 1;
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '同用户同文本去重' });
       return;
     }
-    this.lastTextByUser.set(uid, { text, at: now });
+    this.lastTextByUser.set(uid, { text: spokenText, at: now });
     if (this.lastTextByUser.size > 500) {
       for (const [key, value] of this.lastTextByUser) {
         if (now - value.at >= 60_000) this.lastTextByUser.delete(key);
@@ -568,7 +597,7 @@ export class DanmakuTtsService extends EventEmitter {
     }
 
     // 全局连续重复
-    if (text === this.lastSpokenText) {
+    if (spokenText === this.lastSpokenText) {
       this.lastSpokenTextCount += 1;
       if (this.lastSpokenTextCount >= 3) {
         this.stats.dedupeSkipped += 1;
@@ -577,7 +606,7 @@ export class DanmakuTtsService extends EventEmitter {
         return;
       }
     } else {
-      this.lastSpokenText = text;
+      this.lastSpokenText = spokenText;
       this.lastSpokenTextCount = 1;
     }
 
@@ -593,6 +622,8 @@ export class DanmakuTtsService extends EventEmitter {
       if (uid) this.userCooldowns.set(uid, now);
     }
 
+    // 前缀仅用于朗读文本，用户名不参与正文关键词过滤。
+    const readText = this.buildReadText(spokenText, event);
     this.stats.queued += 1;
     const profile = this.resolveVoiceProfile(event);
     this.recordDanmaku({
