@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { loadConfig } from './config/env.mjs';
 import { createHttpServer } from './transport/http-server.mjs';
 import { createWebSocketGateway } from './transport/websocket-gateway.mjs';
+import { PhaseTelemetry } from './transport/phase-telemetry.mjs';
 import { BiliLiveClient } from './bili/client.mjs';
 import { BiliAuthService } from './bili/auth.mjs';
 import { JsonSongRepository } from './song-request/repository.mjs';
@@ -133,7 +134,9 @@ export function createApplication(runtimeEnv = process.env) {
     ownerUid: config.bilibili.ownerUid,
     authProvider: () => biliAuth.snapshot(),
   });
+  const telemetry = new PhaseTelemetry({root:projectRoot});
   let gateway;
+  telemetry.on('event', event => gateway?.broadcast(event));
 
   const http = createHttpServer({
     biliAuth,
@@ -150,6 +153,7 @@ export function createApplication(runtimeEnv = process.env) {
     autoRestartFile: config.autoRestart.switchFile,
     autoRestartDefault: config.autoRestart.enabled,
     interactionService,
+    telemetry,
     danmakuSendHandler: async ({ text, replyMid, replyUname }) =>
       biliClient.sendDanmaku(text, Number(replyMid) > 0
         ? { mid: Number(replyMid), uname: String(replyUname || '') }
@@ -188,6 +192,7 @@ export function createApplication(runtimeEnv = process.env) {
     obsProxy,
     ttsService,
     interactionService,
+    telemetry,
     async start() {
       await http.start();
       try {
@@ -200,6 +205,7 @@ export function createApplication(runtimeEnv = process.env) {
           songService,
           amllBridge,
           ttsService,
+          telemetry,
         });
         await gateway.ready;
       } catch (error) {
@@ -207,6 +213,7 @@ export function createApplication(runtimeEnv = process.env) {
         throw error;
       }
       await ttsService.start();
+      telemetry.start();
       biliAuth.start();
       console.log('====================================================');
       console.log(`[DanmakuFrame] HTTP: http://${config.host}:${config.httpPort}`);
@@ -221,6 +228,7 @@ export function createApplication(runtimeEnv = process.env) {
     },
     async stop() {
       biliAuth.stop();
+      telemetry.stop();
       if (gateway) await gateway.stop();
       await ttsService.stop();
       await fishTtsEngine.close();

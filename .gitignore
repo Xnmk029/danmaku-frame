@@ -29,3 +29,10 @@ livecontrol/LiveControl.sln
 
 # Local preview and packaging checks
 tmp/
+__pycache__/
+*.pyc
+
+# Diagnostics and .NET intermediate outputs
+scratch/
+**/bin/
+**/obj/

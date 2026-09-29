@@ -1,6 +1,8 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { createStandbyStore } from './standby-store.mjs';
+import { createFrameStore } from './frame-store.mjs';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -112,7 +114,10 @@ export function createHttpServer({
   interactionService = null,
   danmakuSendHandler = null,
   liveHandlers = null,
+  telemetry = null,
 }) {
+  const standbyStore = createStandbyStore(path.join(root, 'data', 'standby-config.json'));
+  const frameStore = createFrameStore(path.join(root, 'data', 'frame-config.json'));
   const server = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
@@ -138,6 +143,22 @@ export function createHttpServer({
 
     // POST 仅用于控制端点（OBS 场景切换联动 / TTS / 自动重启开关）
     if (req.method === 'POST') {
+      if (telemetry && ['/api/telemetry/config','/api/telemetry/scan'].includes(parsedUrl.pathname)) {
+        handleJsonControl(req,res,wsAuthToken,async body=>parsedUrl.pathname.endsWith('/scan')?telemetry.scan():telemetry.configure(body));
+        return;
+      }
+      if (['/api/frame/config','/api/frame/ack'].includes(parsedUrl.pathname)) {
+        handleJsonControl(req,res,wsAuthToken,async body=>parsedUrl.pathname.endsWith('/config')?frameStore.save(body):frameStore.ack(body));
+        return;
+      }
+      if (['/api/standby/config','/api/standby/restart','/api/standby/ack'].includes(parsedUrl.pathname)) {
+        handleJsonControl(req, res, wsAuthToken, async body => {
+          if(parsedUrl.pathname.endsWith('/config'))return standbyStore.save(body);
+          if(parsedUrl.pathname.endsWith('/restart'))return standbyStore.restart();
+          return standbyStore.ack(body);
+        });
+        return;
+      }
       if (parsedUrl.pathname === '/api/obs/switch-scene' && switchSceneHandler) {
         handleSwitchScene(req, res, { switchSceneHandler, wsAuthToken });
         return;
@@ -274,6 +295,19 @@ export function createHttpServer({
 
     if (parsedUrl.pathname === '/api/tts/state' && ttsService) {
       writeJson(res, 200, ttsService.snapshot());
+      return;
+    }
+
+    if (parsedUrl.pathname === '/api/standby/config') {
+      writeJson(res, 200, { ok:true, ...standbyStore.read() });
+      return;
+    }
+    if (parsedUrl.pathname === '/api/frame/config') {
+      writeJson(res,200,frameStore.read());
+      return;
+    }
+    if (parsedUrl.pathname === '/api/telemetry/state' && telemetry) {
+      writeJson(res,200,telemetry.read());
       return;
     }
 

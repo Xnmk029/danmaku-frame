@@ -37,6 +37,15 @@ const TTS_CONTROL_COMMANDS = [
 
 const EMOJI_PATTERN = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0E}\u{FE0F}\u{200D}\u{20E3}]/gu;
 const CONTROL_PATTERN = /[\u{0000}-\u{0008}\u{000B}\u{000C}\u{000E}-\u{001F}\u{007F}-\u{009F}\u{2028}\u{2029}]/gu;
+const ROOM_EMOTE_PREFIX = 'room_30068664_';
+const ROOM_BIG_EMOTE_NAMES = new Map([
+  ['room_30068664_124858', '接收器'],
+  ['room_30068664_124861', '刚的门'],
+  ['room_30068664_124862', '奶鲸'],
+  ['room_30068664_124866', '奶蛙鲸'],
+  ['room_30068664_124867', '糖鲸'],
+  ['room_30068664_124868', '刚鲸'],
+]);
 
 /** 清洗朗读文本：去 emoji / 控制符 / 折叠空白。 */
 export function cleanupTtsText(raw) {
@@ -48,12 +57,16 @@ export function cleanupTtsText(raw) {
   return text;
 }
 
-/** 仅清洗朗读正文：按 B 站元数据精确移除表情，再移除自定义字面词。 */
+/** 仅清洗朗读正文：房间 30068664 专属表情读名称，其余 B 站表情移除。 */
 export function cleanupSpokenText(raw, { emots = [], stripKeywords = [] } = {}) {
   let text = String(raw || '');
   if (Array.isArray(emots)) {
-    for (const key of new Set(emots.map(item => item?.key).filter(key => typeof key === 'string' && key))) {
-      text = text.split(key).join('');
+    for (const emot of emots) {
+      const key = emot?.key;
+      if (typeof key !== 'string' || !key) continue;
+      const spoken = String(emot.unique || '').startsWith(ROOM_EMOTE_PREFIX)
+        ? key.replace(/^\[|\]$/g, '') : '';
+      text = text.split(key).join(spoken);
     }
   }
   if (Array.isArray(stripKeywords)) {
@@ -455,6 +468,11 @@ export class DanmakuTtsService extends EventEmitter {
     this.emit('state', this.snapshot());
   }
 
+  publishVoiceDesign(event) {
+    this.voiceDesignState = event;
+    this.broadcastState(event);
+  }
+
   setEnabled(enabled, { persist = false } = {}) {
     const next = Boolean(enabled);
     if (next === this.state.enabled) return;
@@ -510,13 +528,14 @@ export class DanmakuTtsService extends EventEmitter {
     this.stats.danmakuReceived += 1;
     const baseEntry = { at: this.now(), user: event.user || '观众', text: String(event.text || '').slice(0, 60) };
 
-    if (event.bigEmote) {
+    const bigEmoteName = ROOM_BIG_EMOTE_NAMES.get(event.bigEmote?.unique);
+    if (event.bigEmote && !bigEmoteName) {
       this.stats.emptyText += 1;
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '纯表情/无文本' });
       return;
     }
 
-    const text = cleanupTtsText(event.text);
+    const text = cleanupTtsText(bigEmoteName || event.text);
     if (!text) {
       this.stats.emptyText += 1;
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: '纯表情/无文本' });
@@ -751,6 +770,10 @@ export class DanmakuTtsService extends EventEmitter {
       // LLM 细化（可选）：抽象描述 → MiMo voicedesign 可用提示词。
       // 异步执行（~2-4s）不阻塞弹幕主流程；失败/超时回退原文。
       const useLlm = this.llm?.available && this.config.voiceDesign?.refine !== false;
+      const registrationId = `${uid}:${this.now()}`;
+      this.publishVoiceDesign({type:'voice.design',id:registrationId,user,phase:'searching',message:'正在设计音色',
+        startsAt:this.now(),expiresAt:this.now()+12000,serverNow:this.now()});
+      baseEntry = {...baseEntry,registrationId};
       if (useLlm) {
         this.recordDanmaku({ ...baseEntry, action: 'voice-register', reason: '音色设计中…' });
         this.broadcastState({ type: 'tts.feedback', text: `${user} 的音色设计中…` });
@@ -834,6 +857,8 @@ export class DanmakuTtsService extends EventEmitter {
     if (!entry) {
       this.recordDanmaku({ ...baseEntry, action: 'skipped', reason: `注册失败：${error.message}` });
       this.broadcastState({ type: 'tts.feedback', text: `音色注册失败：${error.message}` });
+      this.publishVoiceDesign({type:'voice.design',id:baseEntry.registrationId,user,phase:'error',message:'音色注册失败',
+        expiresAt:this.now()+2200,serverNow:this.now()});
       return;
     }
     const profile = this.resolveVoiceProfile(event);
@@ -845,6 +870,8 @@ export class DanmakuTtsService extends EventEmitter {
       ...profile,
     });
     this.broadcastState({ type: 'tts.feedback', text: `${user} 已注册音色${entry.rawPrompt ? '（LLM 细化）' : ''}` });
+    this.publishVoiceDesign({type:'voice.design',id:baseEntry.registrationId,user,phase:'success',message:'音色注册成功',
+      expiresAt:this.now()+2200,serverNow:this.now()});
   }
 
   /**

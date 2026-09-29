@@ -28,6 +28,7 @@ function parseDanmakuEmots(info0) {
       if (entry && typeof entry === 'object' && entry.url) {
         emots.push({
           key: String(key || ''),
+          unique: String(entry.emoticon_unique || ''),
           // 统一 https，避免 HTTPS 页面 mixed-content 拦截
           url: String(entry.url).replace(/^http:\/\//i, 'https://'),
           size: inferEmoteSize(entry.width, entry.height),

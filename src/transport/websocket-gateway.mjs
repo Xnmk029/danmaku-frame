@@ -15,6 +15,7 @@ export function createWebSocketGateway({
   songService,
   amllBridge = null,
   ttsService = null,
+  telemetry = null,
 }) {
   const clients = new Set();
   let activeRoomId = '';
@@ -98,7 +99,14 @@ export function createWebSocketGateway({
     };
     clients.add(client);
     send(socket, songService.snapshot());
+    if (telemetry) {
+      const live = telemetry.read();
+      send(socket, live.heart);
+      send(socket, live.audio);
+      if (live.spectrum) send(socket, live.spectrum);
+    }
     if (ttsService?.fishSelection) send(socket, ttsService.fishSelection.snapshot());
+    if (ttsService?.voiceDesignState?.expiresAt>Date.now()) send(socket, ttsService.voiceDesignState);
 
     socket.on('message', rawMessage => {
       const now = Date.now();

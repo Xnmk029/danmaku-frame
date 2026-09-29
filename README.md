@@ -58,7 +58,7 @@ LiveControl 的“直播互动”页显示弹幕、礼物、醒目留言、上�
 
 控制台可以切换引擎、设置音色、语速与音量并试听。运行时设置保存在 `data/tts-state.json`，优先于 `.env` 中的初始 provider 设置。合成可并发准备，播放始终按弹幕入队顺序进行；`TTS_SYNTH_CONCURRENCY` 默认是 3。
 
-朗读会根据 B 站事件自带的表情标记移除正文中的表情，例如 `真的[跪了]好笑` 读作“真的好笑”；整条大表情和清洗后无文字的弹幕会跳过。OBS 画面仍显示原始弹幕。可在 `../.env` 设置 `TTS_STRIP_KEYWORDS=[doge],不想读的词`，用逗号分隔要从朗读正文移除的字面词（不支持正则，英文不区分大小写）；`TTS_BLOCKED_KEYWORDS` 则会跳过包含匹配词的整条弹幕。没有 B 站表情元数据的普通 `[方括号文字]` 会保留，必要时可用移除词单独配置。修改 `.env` 后重启弹幕服务生效。
+朗读会根据 B 站事件自带的表情标记移除正文中的通用表情，例如 `真的[跪了]好笑` 读作“真的好笑”。直播间 `30068664` 的专属表情会读出名称，如 `[奶鲸]` 读作“奶鲸”；当前包括接收器、刚的门、奶鲸、奶蛙鲸、糖鲸、刚鲸。同房间后续新增的内嵌表情若带有房间标识，也会按名称朗读。其他大表情和清洗后无文字的弹幕会跳过。OBS 画面仍显示原始弹幕。可在 `../.env` 设置 `TTS_STRIP_KEYWORDS=[doge],不想读的词`，用逗号分隔要从朗读正文移除的字面词（不支持正则，英文不区分大小写）；`TTS_BLOCKED_KEYWORDS` 则会跳过包含匹配词的整条弹幕。没有 B 站表情元数据的普通 `[方括号文字]` 会保留，必要时可用移除词单独配置。修改 `.env` 后重启弹幕服务生效。
 
 Fish Audio 示例配置：
 
@@ -121,3 +121,31 @@ npm start
 `server.mjs` 启动 `src/app.mjs` 装配服务；`src/config/env.mjs` 读取配置；`src/transport/` 提供 HTTP 和 WebSocket；`src/bili/` 连接 B 站；`src/tts/` 处理朗读；`src/song-request/` 处理点歌；`src/ncm/` 处理歌曲显示；`tests/` 是 Node.js 测试。OBS 页面位于仓库根目录和 `public/`。
 
 `package.json` 中声明的许可证为 MIT。
+
+## PHASE 直播边框（A/B/C）
+
+原 O / 8 背景字形已改为「今日测试模型 ID」对应的长体版本号，配合 PHASE / MARK 本地图标。制作台填写完整模型 ID 后自动识别，保存即可同步前后景；见 [模型标记说明](DOCS/phase-model-mark.md)。
+
+制作台：`http://127.0.0.1:7788/phase-frame.html`。在制作台中按布局调整弹幕条数、歌曲/下一项、心率与频谱；后景和前景的 OBS 地址可直接复制。旧 `index.html` 保留。
+
+Windows 本机心率与桌面音频采集首次安装：
+
+```powershell
+powershell -File scripts/setup-phase-telemetry.ps1
+```
+
+完成后在制作台的“本机采集”中扫描手表并保存设置。佳明 Instinct 1 需要进入心率广播模式；采集的桌面音频来自 Windows 默认播放设备。完整接入说明见 [PHASE 直播边框接入](DOCS/phase-frame-integration.md)。
+
+边框心形图标来自 [Pixel Icon Library by HackerNoon](https://pixeliconlibrary.com/)，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 使用；主题配色及心跳动画由本项目实现，见 [素材声明](public/frame/assets/NOTICE.md)。
+
+边框顶部硬件状态使用独立 Python 组件：`powershell -File scripts/start-hardware.ps1`，或在 LiveControl 启动「硬件状态」。显示真实 CPU / 物理内存 / NVIDIA GPU 占用率与可用温度；无传感器时显示 `—`。无需重启弹幕中继，详见 [硬件采集说明](DOCS/phase-hardware.md)。
+
+### 工作区与验证
+
+运行入口保留在根目录：`phase-frame.html`（边框）、`standby.html`（待机）、`index.html` / `matrix-danmaku.html`（旧边框）、`看门狗.html`。制作台和 OBS 使用原有入口地址。
+
+- 设计与接入说明：`DOCS/`，视觉基准为 `DOCS/phase-signal-design.md`。
+- 素材：`assets/phase/`、`assets/live2d/`；模型图标在 `public/frame/assets/model-marks/`。
+- 旧页面：`public/standby/legacy.html`、`public/previews/awwwards-deepseek-frame.html`。
+- 浏览器验证：`node scripts/verify/verify-model-mark.cjs`、`verify-frame.cjs`、`verify-reference.cjs`、`verify-config-sync.cjs`、`verify-hardware.cjs`。需本地 Playwright 和 Edge；可用 `PLAYWRIGHT_MODULE` 指定模块路径。截图写入 `tmp/qa/`。
+- `data/`、`music/`、`tmp/`、构建输出、依赖与本地环境配置均不提交。

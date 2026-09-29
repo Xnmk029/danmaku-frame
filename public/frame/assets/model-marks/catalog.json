@@ -1,0 +1,1708 @@
+{
+  "source": "phase-mark-complete.zip",
+  "upstream": "https://github.com/lobehub/lobe-icons",
+  "commit": "2e76c48721e91b9aaa40803a0fa2eb8aca7399c4",
+  "variant": "exports/scaled/240/signal",
+  "icons": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "featured": true
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "featured": true
+    },
+    {
+      "id": "google",
+      "name": "Google",
+      "featured": true
+    },
+    {
+      "id": "deepmind",
+      "name": "Google DeepMind",
+      "featured": true
+    },
+    {
+      "id": "meta",
+      "name": "Meta",
+      "featured": true
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "featured": true
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "featured": true
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "featured": true
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "featured": true
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "featured": true
+    },
+    {
+      "id": "ai21",
+      "name": "AI21 Labs",
+      "featured": true
+    },
+    {
+      "id": "ai2",
+      "name": "Ai2",
+      "featured": true
+    },
+    {
+      "id": "inflection",
+      "name": "Inflection",
+      "featured": true
+    },
+    {
+      "id": "reka",
+      "name": "Reka",
+      "featured": true
+    },
+    {
+      "id": "nousresearch",
+      "name": "Nous Research",
+      "featured": true
+    },
+    {
+      "id": "sakana",
+      "name": "Sakana AI",
+      "featured": true
+    },
+    {
+      "id": "liquid",
+      "name": "Liquid AI",
+      "featured": true
+    },
+    {
+      "id": "upstage",
+      "name": "Upstage",
+      "featured": true
+    },
+    {
+      "id": "alephalpha",
+      "name": "Aleph Alpha",
+      "featured": true
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA",
+      "featured": true
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "featured": true
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "featured": true
+    },
+    {
+      "id": "sambanova",
+      "name": "SambaNova",
+      "featured": true
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face",
+      "featured": true
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "featured": true
+    },
+    {
+      "id": "fireworks",
+      "name": "Fireworks AI",
+      "featured": true
+    },
+    {
+      "id": "replicate",
+      "name": "Replicate",
+      "featured": true
+    },
+    {
+      "id": "fal",
+      "name": "fal",
+      "featured": true
+    },
+    {
+      "id": "deepinfra",
+      "name": "DeepInfra",
+      "featured": true
+    },
+    {
+      "id": "baseten",
+      "name": "Baseten",
+      "featured": true
+    },
+    {
+      "id": "anyscale",
+      "name": "Anyscale",
+      "featured": true
+    },
+    {
+      "id": "lambda",
+      "name": "Lambda",
+      "featured": true
+    },
+    {
+      "id": "nebius",
+      "name": "Nebius",
+      "featured": true
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "featured": true
+    },
+    {
+      "id": "aws",
+      "name": "AWS",
+      "featured": true
+    },
+    {
+      "id": "alibaba",
+      "name": "Alibaba",
+      "featured": true
+    },
+    {
+      "id": "bytedance",
+      "name": "ByteDance",
+      "featured": true
+    },
+    {
+      "id": "tencent",
+      "name": "Tencent",
+      "featured": true
+    },
+    {
+      "id": "baidu",
+      "name": "Baidu",
+      "featured": true
+    },
+    {
+      "id": "huawei",
+      "name": "Huawei",
+      "featured": true
+    },
+    {
+      "id": "zhipu",
+      "name": "智谱 Zhipu",
+      "featured": true
+    },
+    {
+      "id": "moonshot",
+      "name": "Moonshot AI",
+      "featured": true
+    },
+    {
+      "id": "minimax",
+      "name": "MiniMax",
+      "featured": true
+    },
+    {
+      "id": "stepfun",
+      "name": "阶跃星辰 StepFun",
+      "featured": true
+    },
+    {
+      "id": "baichuan",
+      "name": "百川 Baichuan",
+      "featured": true
+    },
+    {
+      "id": "zeroone",
+      "name": "零一万物 01.AI",
+      "featured": true
+    },
+    {
+      "id": "sensenova",
+      "name": "SenseNova",
+      "featured": true
+    },
+    {
+      "id": "spark",
+      "name": "讯飞星火 Spark",
+      "featured": true
+    },
+    {
+      "id": "baai",
+      "name": "智源 BAAI",
+      "featured": true
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "featured": true
+    },
+    {
+      "id": "midjourney",
+      "name": "Midjourney",
+      "featured": true
+    },
+    {
+      "id": "stability",
+      "name": "Stability AI",
+      "featured": true
+    },
+    {
+      "id": "bfl",
+      "name": "Black Forest Labs",
+      "featured": true
+    },
+    {
+      "id": "runway",
+      "name": "Runway",
+      "featured": true
+    },
+    {
+      "id": "luma",
+      "name": "Luma AI",
+      "featured": true
+    },
+    {
+      "id": "pika",
+      "name": "Pika",
+      "featured": true
+    },
+    {
+      "id": "ideogram",
+      "name": "Ideogram",
+      "featured": true
+    },
+    {
+      "id": "recraft",
+      "name": "Recraft",
+      "featured": true
+    },
+    {
+      "id": "krea",
+      "name": "Krea",
+      "featured": true
+    },
+    {
+      "id": "adobe",
+      "name": "Adobe",
+      "featured": true
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "featured": true
+    },
+    {
+      "id": "suno",
+      "name": "Suno",
+      "featured": true
+    },
+    {
+      "id": "udio",
+      "name": "Udio",
+      "featured": true
+    },
+    {
+      "id": "assemblyai",
+      "name": "AssemblyAI",
+      "featured": true
+    },
+    {
+      "id": "deepl",
+      "name": "DeepL",
+      "featured": true
+    },
+    {
+      "id": "fishaudio",
+      "name": "Fish Audio",
+      "featured": true
+    },
+    {
+      "id": "meshy",
+      "name": "Meshy",
+      "featured": true
+    },
+    {
+      "id": "tripo",
+      "name": "Tripo",
+      "featured": true
+    },
+    {
+      "id": "haiper",
+      "name": "Haiper",
+      "featured": true
+    },
+    {
+      "id": "hedra",
+      "name": "Hedra",
+      "featured": true
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "featured": true
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "featured": true
+    },
+    {
+      "id": "replit",
+      "name": "Replit",
+      "featured": true
+    },
+    {
+      "id": "lovable",
+      "name": "Lovable",
+      "featured": true
+    },
+    {
+      "id": "devin",
+      "name": "Devin",
+      "featured": true
+    },
+    {
+      "id": "manus",
+      "name": "Manus",
+      "featured": true
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "featured": true
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "featured": true
+    },
+    {
+      "id": "langchain",
+      "name": "LangChain",
+      "featured": true
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "featured": true
+    },
+    {
+      "id": "dify",
+      "name": "Dify",
+      "featured": true
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "featured": true
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "featured": true
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "featured": true
+    },
+    {
+      "id": "grok",
+      "name": "Grok",
+      "featured": true
+    },
+    {
+      "id": "qwen",
+      "name": "通义千问 Qwen",
+      "featured": true
+    },
+    {
+      "id": "kimi",
+      "name": "Kimi",
+      "featured": true
+    },
+    {
+      "id": "doubao",
+      "name": "豆包 Doubao",
+      "featured": true
+    },
+    {
+      "id": "hunyuan",
+      "name": "腾讯混元 Hunyuan",
+      "featured": true
+    },
+    {
+      "id": "wenxin",
+      "name": "文心 Wenxin",
+      "featured": true
+    },
+    {
+      "id": "zai",
+      "name": "Z.ai",
+      "featured": true
+    },
+    {
+      "id": "kling",
+      "name": "可灵 Kling",
+      "featured": true
+    },
+    {
+      "id": "hailuo",
+      "name": "海螺 Hailuo",
+      "featured": true
+    },
+    {
+      "id": "vidu",
+      "name": "Vidu",
+      "featured": true
+    },
+    {
+      "id": "jimeng",
+      "name": "即梦 Jimeng",
+      "featured": true
+    },
+    {
+      "id": "sora",
+      "name": "Sora",
+      "featured": true
+    },
+    {
+      "id": "flux",
+      "name": "FLUX",
+      "featured": true
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "featured": true
+    },
+    {
+      "id": "githubcopilot",
+      "name": "GitHub Copilot",
+      "featured": true
+    },
+    {
+      "id": "adobefirefly",
+      "name": "Adobe Firefly",
+      "featured": true
+    },
+    {
+      "id": "bedrock",
+      "name": "Amazon Bedrock",
+      "featured": true
+    },
+    {
+      "id": "azure",
+      "name": "Azure",
+      "featured": true
+    },
+    {
+      "id": "googlecloud",
+      "name": "Google Cloud",
+      "featured": true
+    },
+    {
+      "id": "ace",
+      "name": "ace",
+      "featured": false
+    },
+    {
+      "id": "agentvoice",
+      "name": "agentvoice",
+      "featured": false
+    },
+    {
+      "id": "agnesai",
+      "name": "agnesai",
+      "featured": false
+    },
+    {
+      "id": "agui",
+      "name": "agui",
+      "featured": false
+    },
+    {
+      "id": "ai302",
+      "name": "ai302",
+      "featured": false
+    },
+    {
+      "id": "ai360",
+      "name": "ai360",
+      "featured": false
+    },
+    {
+      "id": "aihubmix",
+      "name": "aihubmix",
+      "featured": false
+    },
+    {
+      "id": "aimass",
+      "name": "aimass",
+      "featured": false
+    },
+    {
+      "id": "aionlabs",
+      "name": "aionlabs",
+      "featured": false
+    },
+    {
+      "id": "airjelly",
+      "name": "airjelly",
+      "featured": false
+    },
+    {
+      "id": "aistudio",
+      "name": "aistudio",
+      "featured": false
+    },
+    {
+      "id": "akashchat",
+      "name": "akashchat",
+      "featured": false
+    },
+    {
+      "id": "alibabacloud",
+      "name": "alibabacloud",
+      "featured": false
+    },
+    {
+      "id": "amdradeoncloud",
+      "name": "amdradeoncloud",
+      "featured": false
+    },
+    {
+      "id": "amp",
+      "name": "amp",
+      "featured": false
+    },
+    {
+      "id": "anspire",
+      "name": "anspire",
+      "featured": false
+    },
+    {
+      "id": "antgroup",
+      "name": "antgroup",
+      "featured": false
+    },
+    {
+      "id": "antigravity",
+      "name": "antigravity",
+      "featured": false
+    },
+    {
+      "id": "apertis",
+      "name": "apertis",
+      "featured": false
+    },
+    {
+      "id": "apple",
+      "name": "apple",
+      "featured": false
+    },
+    {
+      "id": "arcee",
+      "name": "arcee",
+      "featured": false
+    },
+    {
+      "id": "askverdict",
+      "name": "askverdict",
+      "featured": false
+    },
+    {
+      "id": "atlascloud",
+      "name": "atlascloud",
+      "featured": false
+    },
+    {
+      "id": "automatic",
+      "name": "automatic",
+      "featured": false
+    },
+    {
+      "id": "aya",
+      "name": "aya",
+      "featured": false
+    },
+    {
+      "id": "azureai",
+      "name": "azureai",
+      "featured": false
+    },
+    {
+      "id": "baiducloud",
+      "name": "baiducloud",
+      "featured": false
+    },
+    {
+      "id": "bailian",
+      "name": "bailian",
+      "featured": false
+    },
+    {
+      "id": "bilibili",
+      "name": "bilibili",
+      "featured": false
+    },
+    {
+      "id": "bilibiliindex",
+      "name": "bilibiliindex",
+      "featured": false
+    },
+    {
+      "id": "bing",
+      "name": "bing",
+      "featured": false
+    },
+    {
+      "id": "bocha",
+      "name": "bocha",
+      "featured": false
+    },
+    {
+      "id": "brave",
+      "name": "brave",
+      "featured": false
+    },
+    {
+      "id": "briaai",
+      "name": "briaai",
+      "featured": false
+    },
+    {
+      "id": "browserless",
+      "name": "browserless",
+      "featured": false
+    },
+    {
+      "id": "burncloud",
+      "name": "burncloud",
+      "featured": false
+    },
+    {
+      "id": "capcut",
+      "name": "capcut",
+      "featured": false
+    },
+    {
+      "id": "celestoai",
+      "name": "celestoai",
+      "featured": false
+    },
+    {
+      "id": "centml",
+      "name": "centml",
+      "featured": false
+    },
+    {
+      "id": "chatglm",
+      "name": "chatglm",
+      "featured": false
+    },
+    {
+      "id": "cherrystudio",
+      "name": "cherrystudio",
+      "featured": false
+    },
+    {
+      "id": "chutes",
+      "name": "chutes",
+      "featured": false
+    },
+    {
+      "id": "civitai",
+      "name": "civitai",
+      "featured": false
+    },
+    {
+      "id": "claudecode",
+      "name": "claudecode",
+      "featured": false
+    },
+    {
+      "id": "cline",
+      "name": "cline",
+      "featured": false
+    },
+    {
+      "id": "clipdrop",
+      "name": "clipdrop",
+      "featured": false
+    },
+    {
+      "id": "codebuddy",
+      "name": "codebuddy",
+      "featured": false
+    },
+    {
+      "id": "codeflicker",
+      "name": "codeflicker",
+      "featured": false
+    },
+    {
+      "id": "codegeex",
+      "name": "codegeex",
+      "featured": false
+    },
+    {
+      "id": "cogvideo",
+      "name": "cogvideo",
+      "featured": false
+    },
+    {
+      "id": "cogview",
+      "name": "cogview",
+      "featured": false
+    },
+    {
+      "id": "colab",
+      "name": "colab",
+      "featured": false
+    },
+    {
+      "id": "cometapi",
+      "name": "cometapi",
+      "featured": false
+    },
+    {
+      "id": "comfyui",
+      "name": "comfyui",
+      "featured": false
+    },
+    {
+      "id": "commanda",
+      "name": "commanda",
+      "featured": false
+    },
+    {
+      "id": "commandcode",
+      "name": "commandcode",
+      "featured": false
+    },
+    {
+      "id": "copilot",
+      "name": "copilot",
+      "featured": false
+    },
+    {
+      "id": "copilotkit",
+      "name": "copilotkit",
+      "featured": false
+    },
+    {
+      "id": "coqui",
+      "name": "coqui",
+      "featured": false
+    },
+    {
+      "id": "coze",
+      "name": "coze",
+      "featured": false
+    },
+    {
+      "id": "crewai",
+      "name": "crewai",
+      "featured": false
+    },
+    {
+      "id": "crusoe",
+      "name": "crusoe",
+      "featured": false
+    },
+    {
+      "id": "cybercut",
+      "name": "cybercut",
+      "featured": false
+    },
+    {
+      "id": "dalle",
+      "name": "dalle",
+      "featured": false
+    },
+    {
+      "id": "dbrx",
+      "name": "dbrx",
+      "featured": false
+    },
+    {
+      "id": "decart",
+      "name": "decart",
+      "featured": false
+    },
+    {
+      "id": "deepai",
+      "name": "deepai",
+      "featured": false
+    },
+    {
+      "id": "deepcogito",
+      "name": "deepcogito",
+      "featured": false
+    },
+    {
+      "id": "digitalocean",
+      "name": "digitalocean",
+      "featured": false
+    },
+    {
+      "id": "doc2x",
+      "name": "doc2x",
+      "featured": false
+    },
+    {
+      "id": "docsearch",
+      "name": "docsearch",
+      "featured": false
+    },
+    {
+      "id": "dolphin",
+      "name": "dolphin",
+      "featured": false
+    },
+    {
+      "id": "dotsstudio",
+      "name": "dotsstudio",
+      "featured": false
+    },
+    {
+      "id": "dreammachine",
+      "name": "dreammachine",
+      "featured": false
+    },
+    {
+      "id": "elevenx",
+      "name": "elevenx",
+      "featured": false
+    },
+    {
+      "id": "essentialai",
+      "name": "essentialai",
+      "featured": false
+    },
+    {
+      "id": "exa",
+      "name": "exa",
+      "featured": false
+    },
+    {
+      "id": "fastgpt",
+      "name": "fastgpt",
+      "featured": false
+    },
+    {
+      "id": "featherless",
+      "name": "featherless",
+      "featured": false
+    },
+    {
+      "id": "figma",
+      "name": "figma",
+      "featured": false
+    },
+    {
+      "id": "firecrawl",
+      "name": "firecrawl",
+      "featured": false
+    },
+    {
+      "id": "flora",
+      "name": "flora",
+      "featured": false
+    },
+    {
+      "id": "flowith",
+      "name": "flowith",
+      "featured": false
+    },
+    {
+      "id": "friendli",
+      "name": "friendli",
+      "featured": false
+    },
+    {
+      "id": "geminicli",
+      "name": "geminicli",
+      "featured": false
+    },
+    {
+      "id": "gemma",
+      "name": "gemma",
+      "featured": false
+    },
+    {
+      "id": "giteeai",
+      "name": "giteeai",
+      "featured": false
+    },
+    {
+      "id": "github",
+      "name": "github",
+      "featured": false
+    },
+    {
+      "id": "glama",
+      "name": "glama",
+      "featured": false
+    },
+    {
+      "id": "glif",
+      "name": "glif",
+      "featured": false
+    },
+    {
+      "id": "glmv",
+      "name": "glmv",
+      "featured": false
+    },
+    {
+      "id": "gmicloud",
+      "name": "gmicloud",
+      "featured": false
+    },
+    {
+      "id": "goose",
+      "name": "goose",
+      "featured": false
+    },
+    {
+      "id": "gradio",
+      "name": "gradio",
+      "featured": false
+    },
+    {
+      "id": "greptile",
+      "name": "greptile",
+      "featured": false
+    },
+    {
+      "id": "happyhorse",
+      "name": "happyhorse",
+      "featured": false
+    },
+    {
+      "id": "hermesagent",
+      "name": "hermesagent",
+      "featured": false
+    },
+    {
+      "id": "higress",
+      "name": "higress",
+      "featured": false
+    },
+    {
+      "id": "huaweicloud",
+      "name": "huaweicloud",
+      "featured": false
+    },
+    {
+      "id": "hyperbolic",
+      "name": "hyperbolic",
+      "featured": false
+    },
+    {
+      "id": "ibm",
+      "name": "ibm",
+      "featured": false
+    },
+    {
+      "id": "iflytekcloud",
+      "name": "iflytekcloud",
+      "featured": false
+    },
+    {
+      "id": "inception",
+      "name": "inception",
+      "featured": false
+    },
+    {
+      "id": "inceptron",
+      "name": "inceptron",
+      "featured": false
+    },
+    {
+      "id": "inference",
+      "name": "inference",
+      "featured": false
+    },
+    {
+      "id": "infermatic",
+      "name": "infermatic",
+      "featured": false
+    },
+    {
+      "id": "infinigence",
+      "name": "infinigence",
+      "featured": false
+    },
+    {
+      "id": "internlm",
+      "name": "internlm",
+      "featured": false
+    },
+    {
+      "id": "ionet",
+      "name": "ionet",
+      "featured": false
+    },
+    {
+      "id": "jina",
+      "name": "jina",
+      "featured": false
+    },
+    {
+      "id": "junie",
+      "name": "junie",
+      "featured": false
+    },
+    {
+      "id": "kagi",
+      "name": "kagi",
+      "featured": false
+    },
+    {
+      "id": "kilocode",
+      "name": "kilocode",
+      "featured": false
+    },
+    {
+      "id": "kiro",
+      "name": "kiro",
+      "featured": false
+    },
+    {
+      "id": "kluster",
+      "name": "kluster",
+      "featured": false
+    },
+    {
+      "id": "kolors",
+      "name": "kolors",
+      "featured": false
+    },
+    {
+      "id": "kwaikat",
+      "name": "kwaikat",
+      "featured": false
+    },
+    {
+      "id": "kwaipilot",
+      "name": "kwaipilot",
+      "featured": false
+    },
+    {
+      "id": "langfuse",
+      "name": "langfuse",
+      "featured": false
+    },
+    {
+      "id": "langgraph",
+      "name": "langgraph",
+      "featured": false
+    },
+    {
+      "id": "langsmith",
+      "name": "langsmith",
+      "featured": false
+    },
+    {
+      "id": "leptonai",
+      "name": "leptonai",
+      "featured": false
+    },
+    {
+      "id": "lg",
+      "name": "lg",
+      "featured": false
+    },
+    {
+      "id": "lightricks",
+      "name": "lightricks",
+      "featured": false
+    },
+    {
+      "id": "livekit",
+      "name": "livekit",
+      "featured": false
+    },
+    {
+      "id": "llamaindex",
+      "name": "llamaindex",
+      "featured": false
+    },
+    {
+      "id": "llava",
+      "name": "llava",
+      "featured": false
+    },
+    {
+      "id": "llmapi",
+      "name": "llmapi",
+      "featured": false
+    },
+    {
+      "id": "lmstudio",
+      "name": "lmstudio",
+      "featured": false
+    },
+    {
+      "id": "lobehub",
+      "name": "lobehub",
+      "featured": false
+    },
+    {
+      "id": "longcat",
+      "name": "longcat",
+      "featured": false
+    },
+    {
+      "id": "lovart",
+      "name": "lovart",
+      "featured": false
+    },
+    {
+      "id": "magic",
+      "name": "magic",
+      "featured": false
+    },
+    {
+      "id": "make",
+      "name": "make",
+      "featured": false
+    },
+    {
+      "id": "mastra",
+      "name": "mastra",
+      "featured": false
+    },
+    {
+      "id": "mcp",
+      "name": "mcp",
+      "featured": false
+    },
+    {
+      "id": "mcpso",
+      "name": "mcpso",
+      "featured": false
+    },
+    {
+      "id": "menlo",
+      "name": "menlo",
+      "featured": false
+    },
+    {
+      "id": "metaai",
+      "name": "metaai",
+      "featured": false
+    },
+    {
+      "id": "metagpt",
+      "name": "metagpt",
+      "featured": false
+    },
+    {
+      "id": "modelscope",
+      "name": "modelscope",
+      "featured": false
+    },
+    {
+      "id": "monica",
+      "name": "monica",
+      "featured": false
+    },
+    {
+      "id": "morph",
+      "name": "morph",
+      "featured": false
+    },
+    {
+      "id": "moxt",
+      "name": "moxt",
+      "featured": false
+    },
+    {
+      "id": "myshell",
+      "name": "myshell",
+      "featured": false
+    },
+    {
+      "id": "n8n",
+      "name": "n8n",
+      "featured": false
+    },
+    {
+      "id": "nanobanana",
+      "name": "nanobanana",
+      "featured": false
+    },
+    {
+      "id": "newapi",
+      "name": "newapi",
+      "featured": false
+    },
+    {
+      "id": "nextbit",
+      "name": "nextbit",
+      "featured": false
+    },
+    {
+      "id": "notebooklm",
+      "name": "notebooklm",
+      "featured": false
+    },
+    {
+      "id": "nova",
+      "name": "nova",
+      "featured": false
+    },
+    {
+      "id": "novelai",
+      "name": "novelai",
+      "featured": false
+    },
+    {
+      "id": "novita",
+      "name": "novita",
+      "featured": false
+    },
+    {
+      "id": "nplcloud",
+      "name": "nplcloud",
+      "featured": false
+    },
+    {
+      "id": "obsidian",
+      "name": "obsidian",
+      "featured": false
+    },
+    {
+      "id": "openchat",
+      "name": "openchat",
+      "featured": false
+    },
+    {
+      "id": "openclaw",
+      "name": "openclaw",
+      "featured": false
+    },
+    {
+      "id": "opencode",
+      "name": "opencode",
+      "featured": false
+    },
+    {
+      "id": "openhands",
+      "name": "openhands",
+      "featured": false
+    },
+    {
+      "id": "openhuman",
+      "name": "openhuman",
+      "featured": false
+    },
+    {
+      "id": "openwebui",
+      "name": "openwebui",
+      "featured": false
+    },
+    {
+      "id": "palm",
+      "name": "palm",
+      "featured": false
+    },
+    {
+      "id": "parasail",
+      "name": "parasail",
+      "featured": false
+    },
+    {
+      "id": "perceptron",
+      "name": "perceptron",
+      "featured": false
+    },
+    {
+      "id": "phala",
+      "name": "phala",
+      "featured": false
+    },
+    {
+      "id": "phidata",
+      "name": "phidata",
+      "featured": false
+    },
+    {
+      "id": "phind",
+      "name": "phind",
+      "featured": false
+    },
+    {
+      "id": "pi",
+      "name": "pi",
+      "featured": false
+    },
+    {
+      "id": "pixverse",
+      "name": "pixverse",
+      "featured": false
+    },
+    {
+      "id": "player2",
+      "name": "player2",
+      "featured": false
+    },
+    {
+      "id": "poe",
+      "name": "poe",
+      "featured": false
+    },
+    {
+      "id": "pollinations",
+      "name": "pollinations",
+      "featured": false
+    },
+    {
+      "id": "poolside",
+      "name": "poolside",
+      "featured": false
+    },
+    {
+      "id": "ppio",
+      "name": "ppio",
+      "featured": false
+    },
+    {
+      "id": "prunaai",
+      "name": "prunaai",
+      "featured": false
+    },
+    {
+      "id": "pydanticai",
+      "name": "pydanticai",
+      "featured": false
+    },
+    {
+      "id": "qingyan",
+      "name": "qingyan",
+      "featured": false
+    },
+    {
+      "id": "qiniu",
+      "name": "qiniu",
+      "featured": false
+    },
+    {
+      "id": "qoder",
+      "name": "qoder",
+      "featured": false
+    },
+    {
+      "id": "railway",
+      "name": "railway",
+      "featured": false
+    },
+    {
+      "id": "relace",
+      "name": "relace",
+      "featured": false
+    },
+    {
+      "id": "reve",
+      "name": "reve",
+      "featured": false
+    },
+    {
+      "id": "roocode",
+      "name": "roocode",
+      "featured": false
+    },
+    {
+      "id": "rsshub",
+      "name": "rsshub",
+      "featured": false
+    },
+    {
+      "id": "rwkv",
+      "name": "rwkv",
+      "featured": false
+    },
+    {
+      "id": "search1api",
+      "name": "search1api",
+      "featured": false
+    },
+    {
+      "id": "searchapi",
+      "name": "searchapi",
+      "featured": false
+    },
+    {
+      "id": "searxng",
+      "name": "searxng",
+      "featured": false
+    },
+    {
+      "id": "siliconcloud",
+      "name": "siliconcloud",
+      "featured": false
+    },
+    {
+      "id": "sillytavern",
+      "name": "sillytavern",
+      "featured": false
+    },
+    {
+      "id": "skywork",
+      "name": "skywork",
+      "featured": false
+    },
+    {
+      "id": "slock",
+      "name": "slock",
+      "featured": false
+    },
+    {
+      "id": "smithery",
+      "name": "smithery",
+      "featured": false
+    },
+    {
+      "id": "snowflake",
+      "name": "snowflake",
+      "featured": false
+    },
+    {
+      "id": "sophnet",
+      "name": "sophnet",
+      "featured": false
+    },
+    {
+      "id": "speedai",
+      "name": "speedai",
+      "featured": false
+    },
+    {
+      "id": "statecloud",
+      "name": "statecloud",
+      "featured": false
+    },
+    {
+      "id": "straico",
+      "name": "straico",
+      "featured": false
+    },
+    {
+      "id": "streamlake",
+      "name": "streamlake",
+      "featured": false
+    },
+    {
+      "id": "submodel",
+      "name": "submodel",
+      "featured": false
+    },
+    {
+      "id": "sync",
+      "name": "sync",
+      "featured": false
+    },
+    {
+      "id": "targon",
+      "name": "targon",
+      "featured": false
+    },
+    {
+      "id": "tavily",
+      "name": "tavily",
+      "featured": false
+    },
+    {
+      "id": "tencentcloud",
+      "name": "tencentcloud",
+      "featured": false
+    },
+    {
+      "id": "tiangong",
+      "name": "tiangong",
+      "featured": false
+    },
+    {
+      "id": "tii",
+      "name": "tii",
+      "featured": false
+    },
+    {
+      "id": "topazlabs",
+      "name": "topazlabs",
+      "featured": false
+    },
+    {
+      "id": "trae",
+      "name": "trae",
+      "featured": false
+    },
+    {
+      "id": "turix",
+      "name": "turix",
+      "featured": false
+    },
+    {
+      "id": "unionalpha",
+      "name": "unionalpha",
+      "featured": false
+    },
+    {
+      "id": "unsloth",
+      "name": "unsloth",
+      "featured": false
+    },
+    {
+      "id": "unstructured",
+      "name": "unstructured",
+      "featured": false
+    },
+    {
+      "id": "v0",
+      "name": "v0",
+      "featured": false
+    },
+    {
+      "id": "vectorizerai",
+      "name": "vectorizerai",
+      "featured": false
+    },
+    {
+      "id": "venice",
+      "name": "venice",
+      "featured": false
+    },
+    {
+      "id": "vertexai",
+      "name": "vertexai",
+      "featured": false
+    },
+    {
+      "id": "viggle",
+      "name": "viggle",
+      "featured": false
+    },
+    {
+      "id": "vllm",
+      "name": "vllm",
+      "featured": false
+    },
+    {
+      "id": "volcengine",
+      "name": "volcengine",
+      "featured": false
+    },
+    {
+      "id": "voyage",
+      "name": "voyage",
+      "featured": false
+    },
+    {
+      "id": "wafer",
+      "name": "wafer",
+      "featured": false
+    },
+    {
+      "id": "wandb",
+      "name": "wandb",
+      "featured": false
+    },
+    {
+      "id": "wavespeed",
+      "name": "wavespeed",
+      "featured": false
+    },
+    {
+      "id": "workersai",
+      "name": "workersai",
+      "featured": false
+    },
+    {
+      "id": "worldrouter",
+      "name": "worldrouter",
+      "featured": false
+    },
+    {
+      "id": "xiaomimimo",
+      "name": "xiaomimimo",
+      "featured": false
+    },
+    {
+      "id": "xinference",
+      "name": "xinference",
+      "featured": false
+    },
+    {
+      "id": "xpay",
+      "name": "xpay",
+      "featured": false
+    },
+    {
+      "id": "xuanyuan",
+      "name": "xuanyuan",
+      "featured": false
+    },
+    {
+      "id": "yandex",
+      "name": "yandex",
+      "featured": false
+    },
+    {
+      "id": "yi",
+      "name": "yi",
+      "featured": false
+    },
+    {
+      "id": "youmind",
+      "name": "youmind",
+      "featured": false
+    },
+    {
+      "id": "yuanbao",
+      "name": "yuanbao",
+      "featured": false
+    },
+    {
+      "id": "zapier",
+      "name": "zapier",
+      "featured": false
+    },
+    {
+      "id": "zeabur",
+      "name": "zeabur",
+      "featured": false
+    },
+    {
+      "id": "zencoder",
+      "name": "zencoder",
+      "featured": false
+    },
+    {
+      "id": "zenmux",
+      "name": "zenmux",
+      "featured": false
+    }
+  ]
+}

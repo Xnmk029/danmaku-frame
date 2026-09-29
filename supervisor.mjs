@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ensureHardware } from './src/transport/hardware-launcher.mjs';
 
 /**
  * 弹幕机 Supervisor —— 崩溃自动重启守护进程。
@@ -158,5 +159,14 @@ process.on('uncaughtException', error => {
 console.log('[Supervisor] 弹幕机守护进程启动。崩溃自动重启开关:', isAutoRestartEnabled() ? 'ON' : 'OFF');
 // 启动前检查：若已有实例在服务（如 LiveControl 正在管理），本实例让位退出
 yieldToExistingInstance('启动前检查').then(yielded => {
-  if (!yielded) startWorker();
+  if (!yielded) {
+    startWorker();
+    // Independent sampler: restore it after reboot; reuse a LiveControl instance.
+    // Custom supervisor workers are test / alternative programs, not the overlay.
+    if (!process.env.SUPERVISOR_WORKER) {
+      ensureHardware({ root: path.dirname(fileURLToPath(import.meta.url)) })
+        .then(result => console.log(`[Supervisor] 硬件采集 ${result.status}${result.message ? ': ' + result.message : ''}`))
+        .catch(error => console.error('[Supervisor] 硬件采集启动失败:', error.message));
+    }
+  }
 });

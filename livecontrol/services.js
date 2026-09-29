@@ -10,6 +10,20 @@ const VUP_ROOT = path.join(PRODUCT_ROOT, 'vup');
 // ---------------- 服务定义 ----------------
 const SERVICE_DEFS = [
   {
+    id: 'hardware',
+    name: '硬件状态',
+    desc: 'CPU / 内存 / NVIDIA GPU 占用与传感器温度 → 直播边框 (7790)',
+    icon: 'memory',
+    file: process.env.PHASE_TELEMETRY_PYTHON || path.join(process.env.USERPROFILE, '.cache', 'codex-runtimes', 'codex-primary-runtime', 'dependencies', 'python', 'python.exe'),
+    args: ['scripts/phase-hardware.py'],
+    cwd: path.join(OBS_ROOT, 'danmaku-frame'),
+    health: 'http',
+    url: 'http://127.0.0.1:7790/healthz',
+    killPorts: [7790],
+    readyTimeout: 10,
+    chain: 25,
+  },
+  {
     id: 'danmaku',
     name: '弹幕姬',
     desc: 'B站弹幕 H5 边框 · 点歌姬 · 朗读 · 中继 (7788/7789) · 守护重启',

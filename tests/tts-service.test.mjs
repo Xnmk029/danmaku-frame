@@ -146,6 +146,22 @@ test('朗读正文只删除元数据确认的 B 站表情和配置的字面词',
   assert.equal(cleanupSpokenText('你好🎉 [妙啊]', { emots: [{ key: '[妙啊]' }] }), '你好');
 });
 
+test('30068664 房间专属表情朗读名称，通用与其他房间表情仍移除', async () => {
+  const { service, calls } = createService();
+  const emots = [
+    { key: '[奶鲸]', unique: 'room_30068664_124862' },
+    { key: '[跪了]', unique: 'emoji_276' },
+    { key: '[别的房间]', unique: 'room_12345_99' },
+  ];
+  assert.equal(cleanupSpokenText('早上好[奶鲸][跪了][别的房间]', { emots }), '早上好奶鲸');
+  service.handleDanmaku(danmaku('[奶鲸]', '31', '甲', { emots }));
+  service.handleDanmaku(danmaku('', '32', '乙', { bigEmote: { unique: 'room_30068664_124858' } }));
+  service.handleDanmaku(danmaku('', '33', '丙', { bigEmote: { unique: 'official_120' } }));
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.deepEqual(calls.filter(item => item.op === 'synth').map(item => item.text), ['奶鲸', '接收器']);
+  assert.equal(service.stats.emptyText, 1);
+});
+
 test('B 站表情不进入朗读，纯表情和大表情跳过，普通方括号内容保留', async () => {
   const { service, calls } = createService();
   service.handleDanmaku(danmaku('真的[跪了][跪了]好笑', '11', '甲', { emots: [{ key: '[跪了]' }] }));

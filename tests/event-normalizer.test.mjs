@@ -56,8 +56,8 @@ test('parses inline emots from msgExtra (new wrapped protocol, real sample)', ()
   });
 
   assert.deepEqual(event.emots, [
-    { key: '[跪了]', url: 'https://i0.hdslb.com/bfs/live/4f2155b108047d60c1fa9dccdc4d7abba18379a0.png', size: 'S', bulge: false },
-    { key: '[妙啊]', url: 'https://i0.hdslb.com/bfs/live/big2.png', size: 'L', bulge: false },
+    { key: '[跪了]', unique: 'emoji_276', url: 'https://i0.hdslb.com/bfs/live/4f2155b108047d60c1fa9dccdc4d7abba18379a0.png', size: 'S', bulge: false },
+    { key: '[妙啊]', unique: '', url: 'https://i0.hdslb.com/bfs/live/big2.png', size: 'L', bulge: false },
   ]);
   assert.equal(event.bigEmote, null);
   assert.equal(event.text, '真的[跪了]');
@@ -74,7 +74,7 @@ test('parses inline emots from msgExtra (legacy direct object form)', () => {
   });
 
   assert.deepEqual(event.emots, [
-    { key: '[2233娘_疑问]', url: 'https://i0.hdslb.com/bfs/emote/c3.png', size: 'M', bulge: false },
+    { key: '[2233娘_疑问]', unique: '', url: 'https://i0.hdslb.com/bfs/emote/c3.png', size: 'M', bulge: false },
   ]);
   assert.equal(event.bigEmote, null);
 });
