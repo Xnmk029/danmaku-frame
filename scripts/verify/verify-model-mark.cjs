@@ -64,10 +64,24 @@ const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'
   await editor.evaluate(()=>phaseStudio.setScene('A',{animate:false}));await editor.locator('#frame_model').fill('DeepSeek V3.2');await editor.locator('#frame_model').dispatchEvent('change');await editor.locator('#framePublish').click();
   await Promise.all([front.waitForFunction(()=>phaseFrame.getState().modelMark.icon==='deepseek'),back.waitForFunction(()=>phaseFrame.getState().modelMark.icon==='deepseek')]);
   assert.equal(await back.locator('#frameLive').isVisible(),false);
+  await editor.locator('#frame_chatLimit').fill('10');await editor.locator('#frame_chatLimit').dispatchEvent('change');
+  assert.equal(await editor.locator('#frame_chatLimit').inputValue(),'10','Input must not clamp A back to five');
+  await editor.locator('#framePublish').click();await front.waitForFunction(()=>phaseFrame.getState().settings.chatLimit===10);
+  await front.evaluate(()=>{for(let i=0;i<12;i++)phaseFrame.receive({type:'danmaku',user:'观众'+i,text:'这是一条较长的弹幕，用于验证设置十条时不会继续被限制为五条。'});});
+  assert.equal(await front.locator('.live-chat .live-row').count(),10,'A must show ten compact messages');
+  assert.equal(await front.locator('.live-chat').getAttribute('data-density'),'compact');
+  assert.ok(await front.locator('.live-chat').evaluate(el=>el.scrollHeight<=el.clientHeight));
+  assert.equal(createFrameStore(path.join(tmp,'config.json')).read().layouts.A.broadcast.chatLimit,10,'Higher limits must survive reload');
+  await front.screenshot({path:path.join(screenshots,'frame-chat-A-10.png')});
+  await editor.reload();await editor.waitForFunction(()=>document.querySelector('#frame_chatLimit')?.value==='10');
+  for(let i=0;i<12;i++)await editor.evaluate(i=>phaseFrame.receive({type:'danmaku',user:'观众'+i,text:'测试十条以上的设置可以保存，并按剩余空间显示最新消息。'}),i);
+  assert.ok((await editor.locator('#frameChatStatus').innerText()).includes('设置 10 条'));
+  await editor.locator('#frame_chatLimit').fill('3');await editor.locator('#frame_chatLimit').dispatchEvent('change');
+  assert.equal(await editor.locator('.live-chat .live-row').count(),3);assert.equal(await editor.locator('.live-chat').getAttribute('data-density'),'normal');
   await editor.locator('#frame_model').fill('Unknown Model');await editor.locator('#frame_model').dispatchEvent('change');
   assert.equal(await editor.evaluate(()=>phaseFrame.getState().modelMark.icon),null);assert.equal(await editor.evaluate(()=>phaseFrame.getState().modelMark.version),'—');
   await editor.locator('#frame_model').fill('');await editor.locator('#frame_model').dispatchEvent('change');
   assert.equal(await editor.evaluate(()=>phaseStudio.engine.mask('A').coords.filter(([x,y])=>y>40).length),0,'Empty model must not restore meaningless O/8');
-  assert.deepEqual(errors,[]);console.log('PASS: model ID parsing, A/B/C composition, full ID, icon flow/reference/reduced motion, no duplicate layer icons, 720p, front/back revision sync, unknown/empty fallback');
+  assert.deepEqual(errors,[]);console.log('PASS: model ID parsing, A/B/C composition, full ID, icon flow/reference/reduced motion, no duplicate layer icons, 720p, front/back revision sync, unknown/empty fallback, A ten-row save/reload/compact density');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(tmp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -8,6 +8,7 @@
  const fixedLayer=['front','back','composite'].includes(q.get('layer'))?q.get('layer'):engine.config.layer;
  const defaults={next:'',model:'',fontSize:20,font:'sans',music:true,focusAlerts:true,heart:true,spectrum:true,chatLimit:4};
  const defaultsFor=s=>({...defaults,chatLimit:{A:5,B:4,C:10}[s]});
+ const maxChatRows=20;
  let settings=defaultsFor(fixedScene),room='',revision='',roomRevision='',saved={},socket,reconnect,pollTimer,disposed=false,pending='';
  const drafts={};
  const modelMark=window.PhaseModelMark.install(engine,s=>s===engine.config.scene?settings.model:(drafts[s]?.broadcast.model??saved[s]?.broadcast.model??''));
@@ -68,9 +69,14 @@
  function renderChat(){
   const c=engine.config,s=c.scene;chat.replaceChildren();chat.hidden=!c.showChat||(s==='C'&&!!voiceActive());
   const header=node('div','live-chat-head','CHAT');header.append(node('small','',production?`${status}${popularity?' / '+popularity:''}`:'DEMO'));chat.append(header);
-  const limit=Math.max(1,Math.min({A:5,B:4,C:10}[s],Number(settings.chatLimit)||defaultsFor(s).chatLimit));
+  const limit=Math.max(1,Math.min(maxChatRows,Math.floor(Number(settings.chatLimit))||defaultsFor(s).chatLimit));
+  const fontSize=parseFloat(chat.style.fontSize),lineHeight=fontSize*(s==='A'?1.18:1.22),rowGap=s==='A'?2:3;
+  const twoLineCapacity=Math.floor((chat.clientHeight-31)/(2*lineHeight+rowGap));
+  const compact=limit>Math.max(defaultsFor(s).chatLimit,twoLineCapacity);
+  chat.dataset.density=compact?'compact':'normal';
+  const updateStatus=()=>{const el=$('frameChatStatus');if(el)el.textContent=`当前显示 ${chat.querySelectorAll('.live-row').length} / 设置 ${limit} 条 · ${compact?'紧凑单行，长文字省略':'最多两行'}；空间不足时保留最新消息。`;};
   let rows=messages.filter(m=>s!=='B'||settings.focusAlerts||m.type==='danmaku').slice(-limit);
-  if(!rows.length){chat.append(node('span','live-user',s==='B'?'FOCUS MODE':production?'等待消息…':'无聊天样例'));return;}
+  if(!rows.length){chat.append(node('span','live-user',s==='B'?'FOCUS MODE':production?'等待消息…':'无聊天样例'));updateStatus();return;}
   for(const m of rows){
    const row=node('div','live-row '+(m.type||'danmaku'));
    if(m.medal)row.append(node('span','live-badge',`${m.medal.name} ${m.medal.lv}`));
@@ -78,6 +84,7 @@
    row.append(node('span','live-user',m.user||m.name||'观众'));richText(row,m);chat.append(row);
   }
   while(chat.scrollHeight>chat.clientHeight&&chat.querySelectorAll('.live-row').length>1)chat.querySelector('.live-row').remove();
+  updateStatus();
  }
  function renderMusic(){
   media.replaceChildren();media.hidden=!settings.music||!music?.song||(!music.playing&&!music.paused)||!!voiceActive();
@@ -202,12 +209,12 @@
   document.querySelector('.controls').prepend(control);info=$('frameStatus');
   $('frame_model').parentElement.firstChild.textContent='今日测试模型 ID';$('frame_model').placeholder='例如 Claude Opus 5.5 / Qwen3.2';
   const modelStatus=node('p','hint');modelStatus.id='frameModelStatus';$('frame_model').parentElement.after(modelStatus);
-  control.insertAdjacentHTML('beforeend','<label class="field">弹幕条数<input id="frame_chatLimit" type="number" min="1" max="10" value="4"></label><label class="check">心率显示<input id="frame_heart" type="checkbox" checked></label><label class="check">桌面音频频谱<input id="frame_spectrum" type="checkbox" checked></label><h3>本机采集</h3><label class="field">佳明心率设备名称或地址<input id="frameDevice" value="instinct" placeholder="instinct apac"></label><div class="button-pair"><button id="frameScan">扫描蓝牙设备</button><button id="frameTelemetrySave">保存采集设置</button></div><label class="check">启用手表心率接收<input id="frameHeartCapture" type="checkbox"></label><label class="check">启用桌面音频采集<input id="frameAudioCapture" type="checkbox" checked></label><p class="hint" id="frameTelemetryStatus">采集服务待连接</p><button id="frameSignalTest">测试心率与频谱（仅预览）</button>');
+  control.insertAdjacentHTML('beforeend','<label class="field">弹幕条数（最多20）<input id="frame_chatLimit" type="number" min="1" max="20" value="5"></label><p class="hint" id="frameChatStatus"></p><label class="check">心率显示<input id="frame_heart" type="checkbox" checked></label><label class="check">桌面音频频谱<input id="frame_spectrum" type="checkbox" checked></label><h3>本机采集</h3><label class="field">佳明心率设备名称或地址<input id="frameDevice" value="instinct" placeholder="instinct apac"></label><div class="button-pair"><button id="frameScan">扫描蓝牙设备</button><button id="frameTelemetrySave">保存采集设置</button></div><label class="check">启用手表心率接收<input id="frameHeartCapture" type="checkbox"></label><label class="check">启用桌面音频采集<input id="frameAudioCapture" type="checkbox" checked></label><p class="hint" id="frameTelemetryStatus">采集服务待连接</p><button id="frameSignalTest">测试心率与频谱（仅预览）</button>');
   control.insertAdjacentHTML('beforeend','<h3>电脑硬件状态</h3><p class="hint" id="frameHardwareStatus">正在连接硬件采集…</p><p class="hint">每 2 秒更新一次；GPU 为 NVIDIA 独立显卡，RAM 下方为系统可用物理内存（GB）。CPU 温度需要本机传感器来源，未提供时显示 —。</p>');
   const devicePicker=node('label','select','扫描结果'),deviceList=node('select','');deviceList.id='frameDeviceList';devicePicker.append(deviceList);devicePicker.hidden=true;$('frameScan').closest('.button-pair').after(devicePicker);
   control.insertAdjacentHTML('beforeend','<p class="hint">心形图标：<a href="https://pixeliconlibrary.com/" target="_blank" rel="noopener noreferrer">Pixel Icon Library</a> by HackerNoon · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>；图标轮廓未修改，配色与心跳动效由本项目实现。</p>');
   fillFields();
-  for(const k of ['next','model','fontSize','font','music','focusAlerts','heart','spectrum','chatLimit'])$('frame_'+k).onchange=()=>{const el=$('frame_'+k);settings[k]=el.type==='checkbox'?el.checked:k==='fontSize'?Math.max(14,Math.min(30,Number(el.value)||20)):k==='chatLimit'?Math.max(1,Math.min({A:5,B:4,C:10}[engine.config.scene],Number(el.value)||defaultsFor(engine.config.scene).chatLimit)):el.value;layout();};
+  for(const k of ['next','model','fontSize','font','music','focusAlerts','heart','spectrum','chatLimit'])$('frame_'+k).onchange=()=>{const el=$('frame_'+k);settings[k]=el.type==='checkbox'?el.checked:k==='fontSize'?Math.max(14,Math.min(30,Number(el.value)||20)):k==='chatLimit'?Math.max(1,Math.min(maxChatRows,Math.floor(Number(el.value))||defaultsFor(engine.config.scene).chatLimit)):el.value;if(k==='chatLimit')el.value=settings[k];layout();};
   const telemetryStatus=$('frameTelemetryStatus');
   let telemetryInitialized=false,telemetryBusy=false;
   const statusName={disabled:'未启用',scanning:'正在搜索',not_found:'未发现设备',connected:'已连接',disconnected:'已断开',stale:'数据中断',error:'出错',device_changed:'设备已切换'};

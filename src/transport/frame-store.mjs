@@ -24,7 +24,7 @@ export function validateFrame(body){
  if(!['sans','mono'].includes(b.font))throw new Error('无效字体');
  for(const k of ['music','focusAlerts'])if(typeof b[k]!=='boolean')throw new Error(`无效 ${k}`);
  for(const k of ['heart','spectrum'])if(b[k]!==undefined&&typeof b[k]!=='boolean')throw new Error(`无效 ${k}`);
- const limits={A:[1,5,4],B:[1,4,3],C:[1,10,8]};
+ const limits={A:[1,20,4],B:[1,20,3],C:[1,20,8]};
  const [minimum,maximum,fallback]=limits[body.scene];
  if(b.chatLimit!==undefined&&(!Number.isInteger(b.chatLimit)||b.chatLimit<minimum||b.chatLimit>maximum))throw new Error(`弹幕条数须为${minimum}–${maximum}`);
  Object.assign(broadcast,{fontSize:b.fontSize,font:b.font,music:b.music,focusAlerts:b.focusAlerts,

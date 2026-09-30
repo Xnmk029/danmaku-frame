@@ -10,7 +10,10 @@ test('legacy layouts gain density and signal defaults; scene bounds reject overf
  assert.equal(validateFrame(payload).broadcast.chatLimit,4);
  assert.equal(validateFrame({...payload,scene:'B'}).broadcast.chatLimit,3);
  assert.equal(validateFrame({...payload,scene:'C'}).broadcast.chatLimit,8);
- assert.throws(()=>validateFrame({...payload,scene:'B',broadcast:{...payload.broadcast,chatLimit:8}}));
+ for(const scene of ['A','B','C']){
+  assert.equal(validateFrame({...payload,scene,broadcast:{...payload.broadcast,chatLimit:12}}).broadcast.chatLimit,12);
+  for(const chatLimit of [0,21,6.5])assert.throws(()=>validateFrame({...payload,scene,broadcast:{...payload.broadcast,chatLimit}}));
+ }
  assert.equal(validateFrame({...payload,broadcast:{...payload.broadcast,heart:false,spectrum:false,chatLimit:5}}).broadcast.heart,false);
 });
 test('frame scenes persist independently, room is shared, invalid saves preserve state',()=>{

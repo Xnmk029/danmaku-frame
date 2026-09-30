@@ -26,6 +26,7 @@ body.program .frame-control{display:none!important}
 .frame-live .live-big{height:36px;max-width:120px}
 .frame-live .live-chat[data-scene=A] .live-row{max-height:none;margin-bottom:2px;line-height:1.18}
 .frame-live .live-chat[data-scene=B] .live-row{font-size:17px;max-height:none;margin-bottom:3px}
+.frame-live .live-chat[data-density=compact] .live-row{-webkit-line-clamp:1}
 .frame-live .live-song-title{font-size:21px;line-height:26px}
 .frame-live .live-song-meta{font-size:14px;line-height:17px;margin-top:2px}
 .frame-live .live-track{margin-top:4px}
