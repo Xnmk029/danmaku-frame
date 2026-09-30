@@ -50,7 +50,7 @@
   extra.replaceChildren();if(settings.next)extra.append(node('div','live-next',`NEXT / ${settings.next}`));
   box(heartBox,s==='C'?{x:1312,y:31,w:216,h:65}:{x:1112,y:31,w:300,h:65});
   box(hardwareBox,s==='C'?{x:1548,y:31,w:254,h:65}:{x:544,y:31,w:336,h:65});
-  box(spectrumBox,s==='C'?{x:1312,y:733,w:490,h:16}:s==='A'?{x:840,y:938,w:565,h:16}:{x:1624,y:473,w:234,h:16});
+  box(spectrumBox,s==='C'?{x:1312,y:733,w:490,h:16}:s==='A'?{x:840,y:938,w:565,h:16}:{x:1624,y:404,w:234,h:16});
   extra.hidden=!c.showTopic||!!voiceActive();fit();renderChat();renderMusic();renderVoice(true);renderHeart();renderSpectrum();renderHardware();
   const modelStatus=$('frameModelStatus');if(modelStatus){const mark=modelMark.description(s);modelStatus.textContent=mark.text?`${mark.brand?'图标：'+mark.brand:'图标：通用校准标记'} · 版本：${mark.version}；ID 以独立侧注显示。`:'填写完整模型 ID，将自动匹配图标与版本；例如 Claude Opus 5.5。';}
  }

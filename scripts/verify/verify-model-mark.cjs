@@ -42,6 +42,16 @@ const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'
    assert.ok(chat.scroll<=chat.height,'Chat must fit its reserved area');
    for(const row of chat.rows)assert.ok(row.height>=row.line*2-.5,'The second line must not be clipped');
    if(scene!=='C')assert.ok(chat.bottom<await output.evaluate(()=>PhaseModelMark.layouts[phaseStudio.engine.config.scene].icon.y),'The icon must stay below chat');
+   const animation=await output.evaluate(()=>{
+    const e=phaseStudio.engine,s=e.config.scene,r=PhaseModelMark.layouts[s].icon,canvas=document.createElement('canvas');canvas.width=1920;canvas.height=1080;const ctx=canvas.getContext('2d'),previous={reduced:e.config.reduced,material:e.config.material};
+    const pixels=t=>{ctx.clearRect(0,0,1920,1080);e.drawModelMark(ctx,s,e.theme(s),t);return ctx.getImageData(r.x,r.y,r.size,r.size).data;};
+    const differs=(a,b)=>a.some((v,i)=>v!==b[i]);
+    try{e.setConfig({reduced:false,material:'hybrid'});const a=pixels(0),b=pixels(3);e.setConfig({material:'reference'});const c=pixels(0),d=pixels(3);e.setConfig({reduced:true});const f=pixels(0),g=pixels(3);
+     e.renderAt(0,{scene:s,layer:'front',noTransition:true});const front=e.ctx.getImageData(r.x,r.y,r.size,r.size).data;
+     return {visible:a.some((v,i)=>i%4===3&&v>0),flow:differs(a,b),referenceFlow:differs(c,d),calm:!differs(f,g),frontEmpty:!front.some((v,i)=>i%4===3&&v>0)};
+    }finally{e.setConfig(previous);}
+   });
+   assert.deepEqual(animation,{visible:true,flow:true,referenceFlow:true,calm:true,frontEmpty:true},'Icons must flow inside their shape, freeze with reduced motion and appear once across layers');
    await output.screenshot({path:path.join(screenshots,`model-mark-${scene}.png`)});
    if(scene==='C'){await output.setViewportSize({width:1280,height:720});await output.waitForTimeout(200);await output.screenshot({path:path.join(screenshots,'model-mark-C-720.png')});}
    await output.close();
@@ -56,6 +66,6 @@ const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'
   assert.equal(await editor.evaluate(()=>phaseFrame.getState().modelMark.icon),null);assert.equal(await editor.evaluate(()=>phaseFrame.getState().modelMark.version),'—');
   await editor.locator('#frame_model').fill('');await editor.locator('#frame_model').dispatchEvent('change');
   assert.equal(await editor.evaluate(()=>phaseStudio.engine.mask('A').coords.filter(([x,y])=>y>40).length),0,'Empty model must not restore meaningless O/8');
-  assert.deepEqual(errors,[]);console.log('PASS: model ID parsing, A/B/C composition, full ID, 720p, front/back revision sync, unknown/empty fallback');
+  assert.deepEqual(errors,[]);console.log('PASS: model ID parsing, A/B/C composition, full ID, icon flow/reference/reduced motion, no duplicate layer icons, 720p, front/back revision sync, unknown/empty fallback');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(tmp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -12,7 +12,7 @@
 @media(max-width:460px){.identity{gap:10px}.identity b{font-size:16px}.top-tools #helpButton{display:none}.controls{grid-template-columns:1fr}.stage-meta #fpsLabel{display:none}.scene-tab{padding:10px 8px;gap:8px}.scene-tab small{font-size:6px}.scene-tabs{gap:6px}.transport{gap:8px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-<link rel="stylesheet" href="/public/frame/frame.css?v=7"><script defer src="/public/frame/assets/model-marks/catalog.js?v=1"></script><script defer src="/public/frame/model-mark.js?v=3"></script><script defer src="/public/frame/frame.js?v=9"></script></head>
+<link rel="stylesheet" href="/public/frame/frame.css?v=7"><script defer src="/public/frame/assets/model-marks/catalog.js?v=1"></script><script defer src="/public/frame/model-mark.js?v=4"></script><script defer src="/public/frame/frame.js?v=10"></script></head>
 <body>
 <header class="toolbar">
  <a class="identity" href="#" aria-label="PHASE STUDIO"><span class="chips"><i></i><i></i><i></i><i></i></span><span><b>PHASE <em>/</em> STUDIO</b><small>XOMK · BROADCAST STUDY 004</small></span></a>
@@ -117,7 +117,7 @@ const PAL=[[1,5,64],[3,6,168],[0,23,247],[0,51,255],[0,110,255],[0,196,255],[0,2
 const DEFAULTS=Object.freeze({scene:'A',theme:'auto',layer:'composite',material:'hybrid',grid:4,warp:14,op:.32,cycle:12,markers:true,scars:true,reduced:false,weave:true,showCharacter:true,negativeCharacter:false,avatarScale:1,guides:false,showChat:true,showTopic:true,fit:'contain',topic:'AI / 创作与实验',subtitle:'一起看模型，一起做点有趣的东西。',sync:false});
 const SCENES=Object.freeze({
  A:{name:'CONTENT + L2D',title:'内容与角色',theme:'light',content:{x:72,y:132,w:1344,h:756},avatar:{x:1446,y:430,w:414,h:618,fit:'contain'},chat:{x:1468,y:130,w:354,h:282,rows:5},topic:{x:72,y:925,w:1344,h:94},glyphs:[['O',1466,414,140,594,28],['8',1740,272,112,662,25]],near:[{x:1470,y:748,w:54,h:141},{x:1758,y:830,w:64,h:152}]},
- B:{name:'CONTENT PRIORITY',title:'专注内容',theme:'light',content:{x:72,y:132,w:1536,h:864},avatar:{x:1552,y:512,w:344,h:512,fit:'cover'},chat:{x:1624,y:142,w:234,h:256,rows:4},topic:{x:72,y:1030,w:1436,h:32},glyphs:[['8',1740,320,122,650,25]],near:[{x:1758,y:912,w:56,h:74}]},
+ B:{name:'CONTENT PRIORITY',title:'专注内容',theme:'light',content:{x:72,y:132,w:1536,h:864},avatar:{x:1624,y:724,w:234,h:268,fit:'contain'},chat:{x:1624,y:142,w:234,h:256,rows:4},topic:{x:72,y:1030,w:1436,h:32},glyphs:[['8',1740,320,122,650,25]],near:[{x:1758,y:912,w:56,h:74}]},
  C:{name:'CHARACTER + CHAT',title:'人物与聊天',theme:'negative',content:null,avatar:{x:140,y:28,w:960,h:1004,fit:'cover'},chat:{x:1312,y:232,w:490,h:425,rows:5},topic:{x:1312,y:762,w:490,h:208},glyphs:[['O',274,150,196,802,40],['8',994,104,152,874,30]],near:[{x:240,y:150,w:91,h:840},{x:1080,y:104,w:88,h:890}]}
 });
 const THEMES={light:{bg:'#FDFEFD',ink:'#161940',muted:'#7c84a2',line:'#999fbb',accent:'#2510ee',faint:'#e8eaf2'},negative:{bg:'#020102',ink:'#ebefff',muted:'#777f9b',line:'#515970',accent:'#60aaff',faint:'#20202c'}};
@@ -220,14 +220,11 @@ class Renderer{
   if(this.cache.size>12)this.cache.clear();
   const m={coords,w:c.width,h:c.height};this.cache.set(key,m);return m;
  }
- paintArt(t,scene){
-  const conf=this.config,g=conf.grid,m=this.mask(scene),phase=TAU*mod(conf.reduced?0:t,conf.cycle)/conf.cycle;
-  if(this.small.width!==m.w||this.small.height!==m.h){this.small.width=m.w;this.small.height=m.h;this.img=null;}
-  const sc=this.small.getContext('2d');if(!this.img)this.img=sc.createImageData(m.w,m.h);const d=this.img.data;d.fill(0);
+ materialSampler(t,scene){
+  const conf=this.config,g=conf.grid,phase=TAU*mod(conf.reduced?0:t,conf.cycle)/conf.cycle;
   const blend=conf.material==='reference'?1:conf.material==='hybrid'?.45:0;
   const calm=scene==='B'?.5:1,warp=conf.reduced?0:conf.warp*calm,event=scene==='B'?0:this.activeGlitch(t);
-  for(const [ix,iy,index,opacity=255]of m.coords){
-   const x=(ix+.5)*g,y=(iy+.5)*g;
+  return (x,y)=>{
    const origin=scene==='C'?270:1466;
    let qx=300+mod((x-origin)*1.06,780),qy=85+y*.81;
    qx+=(Math.sin(qy*.008+phase)-Math.sin(qy*.008))*warp;
@@ -249,7 +246,16 @@ class Renderer{
     const p=PAL[Math.floor(mod(v,1)*16)],gate=smooth((zones-(1.85-conf.op*3.2))/.18),bw=kind?checker:stripe;
     r=mix(mix(p[0],bw?250:1,gate),r,blend);green=mix(mix(p[1],bw?254:3,gate),green,blend);b=mix(mix(p[2],bw?253:25,gate),b,blend);
    }
-   d[index]=r;d[index+1]=green;d[index+2]=b;d[index+3]=opacity;
+   return (r|0)|((green|0)<<8)|((b|0)<<16);
+  };
+ }
+ paintArt(t,scene){
+  const g=this.config.grid,m=this.mask(scene),sample=this.materialSampler(t,scene);
+  if(this.small.width!==m.w||this.small.height!==m.h){this.small.width=m.w;this.small.height=m.h;this.img=null;}
+  const sc=this.small.getContext('2d');if(!this.img)this.img=sc.createImageData(m.w,m.h);const d=this.img.data;d.fill(0);
+  for(const [ix,iy,index,opacity=255]of m.coords){
+   const color=sample((ix+.5)*g,(iy+.5)*g);
+   d[index]=color&255;d[index+1]=(color>>8)&255;d[index+2]=(color>>16)&255;d[index+3]=opacity;
   }
   sc.putImageData(this.img,0,0);const ac=this.art.getContext('2d');ac.clearRect(0,0,W,H);ac.imageSmoothingEnabled=false;ac.drawImage(this.small,0,0,W,H);
   return this.art;
@@ -362,7 +368,7 @@ class Renderer{
   if(layer!=='front'){
    ctx.fillStyle=th.bg;ctx.fillRect(0,0,W,H);ctx.save();this.safeClip(ctx,scene);ctx.drawImage(art,0,0);ctx.restore();
    if(layer==='back'&&s.content)ctx.clearRect(s.content.x,s.content.y,s.content.w,s.content.h);
-   this.drawModelMark?.(ctx,scene,th);
+   this.drawModelMark?.(ctx,scene,th,t);
    if(layer==='composite'){this.drawContent(ctx,scene,th);this.drawAvatar(ctx,scene);}
   }
   if(layer!=='back'){

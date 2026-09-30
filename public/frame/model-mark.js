@@ -13,8 +13,8 @@
  ];
  const layouts={
   A:{icon:{x:1468,y:450,size:60},label:{x:1724,y:1008,w:136},rails:[{x:1473,y:530,w:126,h:475,stroke:23},{x:1746,y:460,w:100,h:530,stroke:21}]},
-  B:{icon:{x:1624,y:416,size:52},label:{x:1724,y:1008,w:136},rails:[{x:1648,y:644,w:68,h:322,stroke:14},{x:1782,y:460,w:62,h:498,stroke:14}]},
-  C:{icon:{x:1170,y:182,size:68},label:{x:1112,y:444,w:160},rails:[{x:284,y:310,w:176,h:642,stroke:32},{x:1002,y:279,w:136,h:699,stroke:27}]},
+  B:{icon:{x:1624,y:432,size:56},label:{x:1624,y:1008,w:234},rails:[{x:1640,y:548,w:72,h:284,stroke:16},{x:1768,y:496,w:76,h:348,stroke:17}]},
+  C:{icon:{x:1158,y:124,size:96},label:{x:1108,y:1008,w:200},rails:[{x:218,y:228,w:156,h:690,stroke:32},{x:1098,y:374,w:122,h:580,stroke:27}]},
  };
  // The same tall, rounded stroke construction as the original O / 8 artwork.
  // Keep a real vector skeleton instead of stretching a system font.
@@ -55,6 +55,23 @@
  }
  function install(engine,getModel){
   const images=new Map(),descriptors=new Map();
+  const colors=document.createElement('canvas'),art=document.createElement('canvas');art.width=art.height=128;
+  // Rasterize the supplied pixel silhouette once; the existing art renderer
+  // animates its interior with the same clock, palette and reduced-motion rules.
+  function iconMask(id){
+   if(!images.has(id)){
+    const entry={mask:null,failed:false},image=new Image();images.set(id,entry);
+    image.onload=()=>{
+     const mask=document.createElement('canvas');mask.width=mask.height=128;
+     const ctx=mask.getContext('2d');ctx.drawImage(image,0,0,128,128);
+     ctx.globalCompositeOperation='source-in';ctx.fillStyle='white';ctx.fillRect(0,0,128,128);
+     entry.mask=mask;
+    };
+    image.onerror=()=>{entry.failed=true;};
+    image.src='/public/frame/assets/model-marks/'+id+'.svg';
+   }
+   return images.get(id);
+  }
   const description=scene=>{
    const text=String(getModel(scene)||'').trim().slice(0,80);
    if(descriptors.get(scene)?.text!==text)descriptors.set(scene,resolve(text,globalThis.PhaseModelIcons||[]));
@@ -62,7 +79,8 @@
   };
   engine.modelMarkKey=scene=>{const m=description(scene);return m.text+'|'+engine.theme(scene).bg;};
   engine.modelGlyphs=(scene,ctx)=>{
-   const m=description(scene);if(!m.text||m.version==='—')return;
+   const m=description(scene);
+   if(!m.text||m.version==='—')return;
    const groups=m.version.split('.'),rails=layouts[scene].rails;
    const parts=groups.length>1?[groups[0],groups.slice(1).join('')]:m.version.length>1?[m.version.slice(0,Math.ceil(m.version.length/2)),m.version.slice(Math.ceil(m.version.length/2))]:[m.version,''];
    ctx.save();ctx.strokeStyle='white';ctx.fillStyle='white';ctx.lineCap='round';ctx.lineJoin='round';
@@ -76,14 +94,23 @@
    if(groups.length>1){const r=rails[1];ctx.fillRect(r.x-r.stroke-9,r.y+r.h-9,9,9);}
    ctx.restore();
   };
-  engine.drawModelMark=(ctx,scene,theme)=>{
+  engine.drawModelMark=(ctx,scene,theme,t=engine.lastTime||0)=>{
    const m=description(scene),r=layouts[scene];
    ctx.save();
-   if(m.icon){
-    if(!images.has(m.icon)){const image=new Image();image.src='/public/frame/assets/model-marks/'+m.icon+'.svg';images.set(m.icon,image);}
-    const image=images.get(m.icon);
-    if(image.complete&&image.naturalWidth){ctx.imageSmoothingEnabled=false;ctx.drawImage(image,r.icon.x,r.icon.y,r.icon.size,r.icon.size);}
-   }else{
+   const image=m.icon?iconMask(m.icon):null;
+   if(image?.mask){
+    const count=Math.ceil(r.icon.size/engine.config.grid),sample=engine.materialSampler(t,scene);
+    if(colors.width!==count)colors.width=colors.height=count;
+    const colorContext=colors.getContext('2d'),pixels=colorContext.createImageData(count,count),step=r.icon.size/count;
+    for(let y=0;y<count;y++)for(let x=0;x<count;x++){
+     const index=(y*count+x)*4,color=sample(r.icon.x+(x+.5)*step,r.icon.y+(y+.5)*step);
+     pixels.data[index]=color&255;pixels.data[index+1]=(color>>8)&255;pixels.data[index+2]=(color>>16)&255;pixels.data[index+3]=255;
+    }
+    colorContext.putImageData(pixels,0,0);
+    const ac=art.getContext('2d');ac.globalCompositeOperation='source-over';ac.clearRect(0,0,128,128);ac.drawImage(image.mask,0,0);
+    ac.globalCompositeOperation='source-in';ac.imageSmoothingEnabled=false;ac.drawImage(colors,0,0,128,128);
+    ctx.imageSmoothingEnabled=false;ctx.drawImage(art,r.icon.x,r.icon.y,r.icon.size,r.icon.size);
+   }else if(!m.icon||image.failed){
     ctx.strokeStyle=theme.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(r.icon.x+16,r.icon.y+32);ctx.lineTo(r.icon.x+48,r.icon.y+32);ctx.moveTo(r.icon.x+32,r.icon.y+16);ctx.lineTo(r.icon.x+32,r.icon.y+48);ctx.stroke();
    }
    ctx.restore();
