@@ -25,7 +25,7 @@ const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'
   for(const scene of ['A','B','C']){
    await editor.evaluate(s=>phaseStudio.setScene(s,{animate:false}),scene);
    await editor.locator('#frame_model').fill('Astra Opus5.5');await editor.locator('#frame_model').dispatchEvent('change');
-   await editor.locator('#frame_chatLimit').fill(String({A:5,B:4,C:8}[scene]));await editor.locator('#frame_chatLimit').dispatchEvent('change');
+   await editor.locator('#frame_chatLimit').fill(String({A:5,B:4,C:10}[scene]));await editor.locator('#frame_chatLimit').dispatchEvent('change');
    await editor.locator('#framePublish').click();await editor.waitForTimeout(120);
    assert.equal(store.read().layouts[scene].broadcast.model,'Astra Opus5.5');
   }
@@ -33,15 +33,17 @@ const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'
    const output=await context.newPage();output.on('pageerror',e=>errors.push(e.message));
    await output.goto(base+`/phase-frame.html?view=program&scene=${scene}&layer=composite`);
    await output.waitForFunction(()=>phaseFrame?.getState().modelMark.icon==='claude');
-   await output.evaluate(()=>{phaseStudio.engine.setConfig({showCharacter:true});for(let i=0;i<5;i++)phaseFrame.receive({type:'danmaku',user:'观众'+i,text:'测试两行弹幕完整显示，模型版本缩小后，文字应该保持清楚并且和下方图标错开摆放'});});
+   await output.evaluate(()=>{phaseStudio.engine.setConfig({showCharacter:true});for(let i=0;i<10;i++)phaseFrame.receive({type:'danmaku',user:'观众'+i,text:'测试两行弹幕完整显示，模型版本缩小后，文字应该保持清楚并且和下方图标错开摆放'});});
    await output.waitForTimeout(350);
    assert.equal(await output.evaluate(()=>phaseFrame.getState().modelMark.version),'5.5');
    assert.equal(await output.locator('.live-model').count(),0);
    const chat=await output.evaluate(()=>{const c=document.querySelector('.live-chat');return {height:c.clientHeight,scroll:c.scrollHeight,rows:[...c.querySelectorAll('.live-row')].map(r=>({height:r.offsetHeight,line:parseFloat(getComputedStyle(r).lineHeight)})),bottom:parseFloat(c.style.top)+c.clientHeight,scene:phaseStudio.engine.config.scene};});
-   assert.equal(chat.rows.length,{A:5,B:4,C:5}[scene],'All configured two-line messages must fit');
+   assert.equal(chat.rows.length,{A:5,B:4,C:9}[scene],'All configured two-line messages must fit');
    assert.ok(chat.scroll<=chat.height,'Chat must fit its reserved area');
    for(const row of chat.rows)assert.ok(row.height>=row.line*2-.5,'The second line must not be clipped');
-   if(scene!=='C')assert.ok(chat.bottom<await output.evaluate(()=>PhaseModelMark.layouts[phaseStudio.engine.config.scene].icon.y),'The icon must stay below chat');
+   const boundary=await output.evaluate(()=>{const s=phaseStudio.engine.config.scene;return s==='C'?phaseStudio.getLayout(s).topic.y:PhaseModelMark.layouts[s].icon.y;});
+   assert.equal(boundary-chat.bottom,24,'Chat should leave only 24px before the next visual component');
+   if(scene==='C')assert.deepEqual(await output.evaluate(()=>{const music=document.querySelector('.live-music'),next=document.querySelector('.live-extra');return {music:parseFloat(music.style.top),next:parseFloat(next.style.top)};}),{music:971,next:182});
    const animation=await output.evaluate(()=>{
     const e=phaseStudio.engine,s=e.config.scene,r=PhaseModelMark.layouts[s].icon,canvas=document.createElement('canvas');canvas.width=1920;canvas.height=1080;const ctx=canvas.getContext('2d'),previous={reduced:e.config.reduced,material:e.config.material};
     const pixels=t=>{ctx.clearRect(0,0,1920,1080);e.drawModelMark(ctx,s,e.theme(s),t);return ctx.getImageData(r.x,r.y,r.size,r.size).data;};

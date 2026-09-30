@@ -7,7 +7,7 @@
  const fixedScene=['A','B','C'].includes(q.get('scene'))?q.get('scene'):engine.config.scene;
  const fixedLayer=['front','back','composite'].includes(q.get('layer'))?q.get('layer'):engine.config.layer;
  const defaults={next:'',model:'',fontSize:20,font:'sans',music:true,focusAlerts:true,heart:true,spectrum:true,chatLimit:4};
- const defaultsFor=s=>({...defaults,chatLimit:{A:4,B:3,C:8}[s]});
+ const defaultsFor=s=>({...defaults,chatLimit:{A:5,B:4,C:10}[s]});
  let settings=defaultsFor(fixedScene),room='',revision='',roomRevision='',saved={},socket,reconnect,pollTimer,disposed=false,pending='';
  const drafts={};
  const modelMark=window.PhaseModelMark.install(engine,s=>s===engine.config.scene?settings.model:(drafts[s]?.broadcast.model??saved[s]?.broadcast.model??''));
@@ -40,17 +40,17 @@
   const c=engine.config,s=c.scene,t=engine.theme(s),l=api.getLayout(s);
   overlay.dataset.reduced=String(c.reduced);
   overlay.hidden=c.layer==='back';overlay.style.setProperty('--live-ink',t.ink);overlay.style.setProperty('--live-accent',t.accent);overlay.style.setProperty('--live-muted',t.muted);overlay.style.setProperty('--live-line',t.line);
-  box(chat,s==='A'?{x:1468,y:130,w:354,h:282}:s==='B'?{x:1624,y:142,w:234,h:256}:l.chat);chat.dataset.scene=s;chat.style.fontSize=(s==='A'?Math.min(settings.fontSize,20):s==='B'?Math.min(settings.fontSize,17):settings.fontSize)+'px';chat.style.fontFamily=settings.font==='mono'?'Consolas,"Microsoft YaHei",monospace':'"Microsoft YaHei",Arial,sans-serif';
+  box(chat,s==='A'?{x:1468,y:130,w:354,h:296}:s==='B'?{x:1624,y:142,w:234,h:282}:{...l.chat,h:506});chat.dataset.scene=s;chat.style.fontSize=(s==='A'?Math.min(settings.fontSize,20):s==='B'?Math.min(settings.fontSize,17):settings.fontSize)+'px';chat.style.fontFamily=settings.font==='mono'?'Consolas,"Microsoft YaHei",monospace':'"Microsoft YaHei",Arial,sans-serif';
   const v=s==='C'?l.chat:s==='A'?{x:216,y:912,w:1200,h:111}:{x:156,y:1006,w:1436,h:71};
   box(voiceBox,v);voiceBox.dataset.scene=s;
-  box(media,s==='C'?{x:1312,y:671,w:490,h:61}:s==='A'?{x:840,y:1005,w:565,h:57}:{x:930,y:1008,w:520,h:53});
+  box(media,s==='C'?{x:1312,y:971,w:490,h:61}:s==='A'?{x:840,y:1005,w:565,h:57}:{x:930,y:1008,w:520,h:53});
   media.dataset.scene=s;
-  box(extra,s==='C'?{x:1312,y:971,w:490,h:50}:s==='A'?{x:216,y:1009,w:590,h:52}:{x:1624,y:97,w:234,h:43});
+  box(extra,s==='C'?{x:1312,y:182,w:490,h:33}:s==='A'?{x:216,y:1009,w:590,h:52}:{x:1624,y:97,w:234,h:43});
   extra.dataset.scene=s;
   extra.replaceChildren();if(settings.next)extra.append(node('div','live-next',`NEXT / ${settings.next}`));
   box(heartBox,s==='C'?{x:1312,y:31,w:216,h:65}:{x:1112,y:31,w:300,h:65});
   box(hardwareBox,s==='C'?{x:1548,y:31,w:254,h:65}:{x:544,y:31,w:336,h:65});
-  box(spectrumBox,s==='C'?{x:1312,y:733,w:490,h:16}:s==='A'?{x:840,y:938,w:565,h:16}:{x:1624,y:404,w:234,h:16});
+  box(spectrumBox,s==='C'?{x:1312,y:1038,w:490,h:16}:s==='A'?{x:840,y:938,w:565,h:16}:{x:1624,y:430,w:234,h:12});
   extra.hidden=!c.showTopic||!!voiceActive();fit();renderChat();renderMusic();renderVoice(true);renderHeart();renderSpectrum();renderHardware();
   const modelStatus=$('frameModelStatus');if(modelStatus){const mark=modelMark.description(s);modelStatus.textContent=mark.text?`${mark.brand?'图标：'+mark.brand:'图标：通用校准标记'} · 版本：${mark.version}；ID 以独立侧注显示。`:'填写完整模型 ID，将自动匹配图标与版本；例如 Claude Opus 5.5。';}
  }

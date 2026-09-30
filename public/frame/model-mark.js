@@ -13,7 +13,7 @@
  ];
  const layouts={
   A:{icon:{x:1468,y:450,size:60},label:{x:1724,y:1008,w:136},rails:[{x:1473,y:530,w:126,h:475,stroke:23},{x:1746,y:460,w:100,h:530,stroke:21}]},
-  B:{icon:{x:1624,y:432,size:56},label:{x:1624,y:1008,w:234},rails:[{x:1640,y:548,w:72,h:284,stroke:16},{x:1768,y:496,w:76,h:348,stroke:17}]},
+  B:{icon:{x:1624,y:448,size:56},label:{x:1624,y:1008,w:234},rails:[{x:1640,y:548,w:72,h:284,stroke:16},{x:1768,y:496,w:76,h:348,stroke:17}]},
   C:{icon:{x:1158,y:124,size:96},label:{x:1108,y:1008,w:200},rails:[{x:218,y:228,w:156,h:690,stroke:32},{x:1098,y:374,w:122,h:580,stroke:27}]},
  };
  // The same tall, rounded stroke construction as the original O / 8 artwork.
